@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Stock E.R.A. — Encodage étiquettes</title>
-<script src="https://alcdn.msauth.net/browser/3.28.1/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -159,7 +159,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.0</small></h1>
+  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.0.1</small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -172,10 +172,10 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   <section id="viewCfg" class="hidden">
     <div class="card">
       <h2>Configuration (une seule fois par appareil)</h2>
-      <label>Directory (tenant) ID — Entra ID</label>
-      <input id="cfgTenant" class="mono" placeholder="ex. 3f2a…-….">
-      <label>Application (client) ID — Entra ID</label>
-      <input id="cfgClient" class="mono" placeholder="ex. 8b1c…-…">
+      <label>ID de l'annuaire (locataire) — Entra ID</label>
+      <input id="cfgTenant" class="mono" placeholder="ex. 9d05…-…">
+      <label>ID d'application (client) — Entra ID</label>
+      <input id="cfgClient" class="mono" placeholder="ex. 75ff…-…">
       <label>Lien de partage du dossier OneDrive/SharePoint (droits d'édition)</label>
       <input id="cfgShare" placeholder="https://…sharepoint.com/… ou https://1drv.ms/…">
       <p class="hint">Le lien doit pointer vers le <b>dossier</b> qui contiendra la base (stock-db.json)
