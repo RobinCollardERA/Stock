@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Stock E.R.A. — Encodage étiquettes</title>
+<script src="https://alcdn.msauth.net/browser/3.28.1/js/msal-browser.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ Base ============ */
+:root{
+  --bg:#14171A;         /* anthracite tableau */
+  --surface:#1E2328;
+  --surface2:#262C33;
+  --line:#333B44;
+  --txt:#E8ECEF;
+  --txt-dim:#9AA6B0;
+  --accent:#F5B800;     /* jaune signalétique */
+  --accent-ink:#1A1400;
+  --ok:#3FB27F;
+  --danger:#E4573D;
+  --radius:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:15px;line-height:1.45;
+}
+button{font:inherit;cursor:pointer;border:none;border-radius:var(--radius)}
+input,select,textarea{
+  font:inherit;color:var(--txt);background:var(--surface2);
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px 12px;width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+.mono{font-family:'IBM Plex Mono',monospace}
+.hidden{display:none!important}
+
+/* ============ Header ============ */
+header{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 16px;background:var(--surface);
+  border-bottom:3px solid var(--accent);
+  position:sticky;top:0;z-index:20;
+}
+/* motif code-barres du logo */
+.logo-bars{display:flex;gap:2px;height:26px;align-items:stretch}
+.logo-bars span{background:var(--accent);width:3px}
+.logo-bars span:nth-child(2){width:6px}
+.logo-bars span:nth-child(4){width:2px}
+.logo-bars span:nth-child(5){width:5px}
+header h1{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:22px;letter-spacing:.5px;text-transform:uppercase;
+}
+header h1 small{color:var(--txt-dim);font-weight:600;font-size:14px;margin-left:6px}
+.spacer{flex:1}
+#syncChip{
+  font-size:12px;color:var(--txt-dim);
+  display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+#syncDot{width:8px;height:8px;border-radius:50%;background:var(--txt-dim)}
+#syncDot.ok{background:var(--ok)} #syncDot.err{background:var(--danger)} #syncDot.busy{background:var(--accent)}
+#btnUser{background:var(--surface2);color:var(--txt-dim);padding:6px 10px;font-size:12px;border:1px solid var(--line)}
+
+/* ============ Layout ============ */
+main{max-width:860px;margin:0 auto;padding:14px 14px 90px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card h2{font-family:'Barlow Condensed',sans-serif;font-size:19px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;color:var(--accent)}
+label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-weight:500}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.btn{background:var(--accent);color:var(--accent-ink);font-weight:600;padding:11px 16px}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--surface2);color:var(--txt);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12.5px;color:var(--txt-dim);margin-top:6px}
+
+/* ============ Barre de scan ============ */
+#scanBar{
+  display:flex;gap:8px;align-items:stretch;
+  background:var(--surface);border:1px solid var(--line);
+  border-left:4px solid var(--accent);
+  border-radius:var(--radius);padding:10px;margin-bottom:14px;
+}
+#scanInput{
+  font-family:'IBM Plex Mono',monospace;font-size:17px;
+  letter-spacing:1px;flex:1;
+}
+#btnCam{background:var(--surface2);border:1px solid var(--line);color:var(--accent);
+  padding:0 14px;font-size:20px;line-height:1}
+#btnScanGo{padding:0 16px}
+
+/* ============ Liste ============ */
+#searchInput{margin-bottom:10px}
+.item{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 14px;margin-bottom:8px;
+  display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;
+}
+.item .name{font-weight:600}
+.item .name .ref{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;margin-left:8px}
+.item .desc{grid-column:1;color:var(--txt-dim);font-size:13px}
+.item .codes{grid-column:1;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--txt-dim)}
+.item .codes b{color:var(--txt);font-weight:400}
+.item .meta{grid-column:1;font-size:12px;color:var(--txt-dim)}
+.item .actions{grid-row:1/5;grid-column:2;display:flex;flex-direction:column;gap:6px}
+.item .actions button{padding:8px 12px;font-size:13px}
+.tag{display:inline-block;background:var(--surface2);border:1px solid var(--line);
+  border-radius:3px;padding:1px 6px;font-size:11.5px;color:var(--txt-dim);margin-right:6px}
+.tag.ruban{color:var(--accent);border-color:var(--accent)}
+#count{font-size:13px;color:var(--txt-dim);margin:4px 0 10px}
+.empty{color:var(--txt-dim);text-align:center;padding:30px 10px;font-size:14px}
+
+/* ============ Modale formulaire ============ */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:20px 12px;overflow:auto;
+}
+.modal{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);
+  border-radius:var(--radius);padding:18px;width:100%;max-width:560px}
+.modal h2{font-family:'Barlow Condensed',sans-serif;font-size:20px;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.gtin-ok{color:var(--ok);font-size:12px} .gtin-bad{color:var(--danger);font-size:12px}
+.modal .foot{display:flex;gap:10px;margin-top:18px}
+.modal .foot .btn{flex:1}
+
+/* ============ Caméra ============ */
+#camModal .modal{max-width:480px}
+#reader{width:100%;border-radius:var(--radius);overflow:hidden}
+
+/* ============ Toast ============ */
+#toast{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--ok);
+  color:var(--txt);padding:10px 16px;border-radius:var(--radius);
+  z-index:60;font-size:14px;max-width:92vw;
+}
+#toast.err{border-left-color:var(--danger)}
+
+@media (max-width:560px){
+  .row{flex-direction:column;gap:0}
+  header h1 small{display:none}
+  .item .actions{flex-direction:row}
+}
+@media (prefers-reduced-motion:no-preference){
+  .item,.modal{animation:pop .15s ease-out}
+  @keyframes pop{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
+  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.0</small></h1>
+  <div class="spacer"></div>
+  <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
+  <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
+  <button id="btnCfg" class="btn ghost" style="padding:6px 10px;font-size:12px">⚙</button>
+</header>
+
+<main>
+
+  <!-- ===== Vue configuration ===== -->
+  <section id="viewCfg" class="hidden">
+    <div class="card">
+      <h2>Configuration (une seule fois par appareil)</h2>
+      <label>Directory (tenant) ID — Entra ID</label>
+      <input id="cfgTenant" class="mono" placeholder="ex. 3f2a…-….">
+      <label>Application (client) ID — Entra ID</label>
+      <input id="cfgClient" class="mono" placeholder="ex. 8b1c…-…">
+      <label>Lien de partage du dossier OneDrive/SharePoint (droits d'édition)</label>
+      <input id="cfgShare" placeholder="https://…sharepoint.com/… ou https://1drv.ms/…">
+      <p class="hint">Le lien doit pointer vers le <b>dossier</b> qui contiendra la base (stock-db.json)
+      et les fichiers d'export P-touch. Voir le guide de mise en service.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="btnCfgSave">Enregistrer et se connecter</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Vue connexion ===== -->
+  <section id="viewLogin" class="hidden">
+    <div class="card" style="text-align:center;padding:34px 16px">
+      <h2>Connexion requise</h2>
+      <p class="hint" style="margin-bottom:16px">Connectez-vous avec votre compte Microsoft 365 E.R.A.</p>
+      <button class="btn" id="btnLogin" style="min-width:220px">Se connecter</button>
+    </div>
+  </section>
+
+  <!-- ===== Vue principale ===== -->
+  <section id="viewMain" class="hidden">
+
+    <div id="scanBar">
+      <input id="scanInput" placeholder="Scanner un code… (douchette ou saisie)" autocomplete="off" inputmode="numeric">
+      <button id="btnScanGo" class="btn">OK</button>
+      <button id="btnCam" title="Scanner avec la caméra">📷</button>
+    </div>
+
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn ghost" id="btnNew">＋ Nouvel article</button>
+      <button class="btn ghost" id="btnExport">⬇ Fichier P-touch (xlsx)</button>
+      <button class="btn ghost" id="btnPublish">☁ Publier l'export sur OneDrive</button>
+    </div>
+
+    <input id="searchInput" placeholder="Rechercher (nom, référence, GTIN, emplacement…)">
+    <div id="count"></div>
+    <div id="list"></div>
+  </section>
+
+</main>
+
+<!-- ===== Modale fiche article ===== -->
+<div id="formModal" class="overlay hidden">
+  <div class="modal">
+    <h2 id="formTitle">Nouvel article</h2>
+    <p class="hint" id="formSub"></p>
+
+    <label>Nom produit *</label>
+    <input id="fNom" placeholder="ex. iC60H C4">
+    <label>Référence fabricant</label>
+    <input id="fRef" class="mono" placeholder="ex. A9F84204">
+    <label>Description</label>
+    <textarea id="fDesc" rows="2" placeholder="ex. Disjoncteur 2P 4A courbe C"></textarea>
+
+    <div class="row">
+      <div>
+        <label>GTIN unitaire (EAN-13) <span id="fG13Chk"></span></label>
+        <input id="fG13" class="mono" inputmode="numeric" maxlength="14">
+      </div>
+      <div>
+        <label>GTIN conditionnement <span id="fG14Chk"></span></label>
+        <input id="fG14" class="mono" inputmode="numeric" maxlength="14">
+      </div>
+    </div>
+    <button class="btn ghost" id="btnDerive" style="margin-top:8px;font-size:13px;padding:7px 12px">
+      Dériver le GTIN-14 depuis l'unitaire
+    </button>
+
+    <div class="row">
+      <div>
+        <label>Qté par conditionnement</label>
+        <input id="fQty" inputmode="numeric" placeholder="ex. 10">
+      </div>
+      <div>
+        <label>Emplacement rayonnage</label>
+        <input id="fEmpl" placeholder="ex. R03-B2">
+      </div>
+      <div>
+        <label>Ruban étiquette</label>
+        <select id="fRuban">
+          <option value="24">24 mm</option>
+          <option value="36">36 mm</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="foot">
+      <button class="btn ghost" id="btnFormCancel">Annuler</button>
+      <button class="btn danger hidden" id="btnFormDelete">Supprimer</button>
+      <button class="btn" id="btnFormSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modale caméra ===== -->
+<div id="camModal" class="overlay hidden">
+  <div class="modal">
+    <h2>Scanner avec la caméra</h2>
+    <div id="reader"></div>
+    <div class="foot"><button class="btn ghost" id="btnCamClose">Fermer</button></div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script>
+/* =====================================================================
+   Stock E.R.A. — v1.0
+   Base de données : stock-db.json dans un dossier OneDrive/SharePoint
+   partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
+   ===================================================================== */
+
+// ---------- Config locale ----------
+const CFG_KEY = 'stockera_cfg';
+let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+
+// ---------- État ----------
+let msalApp = null, account = null;
+let drive = null;               // {driveId, folderId} résolus depuis le lien de partage
+let db = { records: [] };       // base en mémoire
+let dbEtag = null;
+let editingId = null;           // id de la fiche en cours d'édition (null = nouvelle)
+let camScanner = null;
+const DB_FILE = 'stock-db.json';
+const GRAPH = 'https://graph.microsoft.com/v1.0';
+const SCOPES = ['User.Read', 'Files.ReadWrite.All'];
+
+// ---------- Utilitaires GTIN (GS1) ----------
+function gs1Check(body){                       // body = code sans check digit
+  let s = 0;
+  for (let i = 0; i < body.length; i++){
+    const d = +body[body.length - 1 - i];
+    s += d * (i % 2 === 0 ? 3 : 1);
+  }
+  return (10 - (s % 10)) % 10;
+}
+function isValidGtin(code){
+  if (!/^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(code)) return false;
+  return +code.slice(-1) === gs1Check(code.slice(0, -1));
+}
+function derive14(gtin13, indicator = 1){      // GTIN-14 boîte depuis GTIN-13 unitaire
+  const body = String(indicator) + gtin13.slice(0, 12);
+  return body + gs1Check(body);
+}
+function derive13(gtin14){                     // GTIN-13 probable depuis un GTIN-14
+  const body = gtin14.slice(1, 13);
+  return body + gs1Check(body);
+}
+
+// ---------- UI helpers ----------
+const $ = id => document.getElementById(id);
+function show(id){ ['viewCfg','viewLogin','viewMain'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+function toast(msg, err = false){
+  const t = $('toast');
+  t.textContent = msg; t.classList.toggle('err', err); t.classList.remove('hidden');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3200);
+}
+function sync(state, text){
+  $('syncDot').className = state; $('syncText').textContent = text;
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---------- Auth (MSAL) ----------
+async function initAuth(){
+  msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId: cfg.clientId,
+      authority: 'https://login.microsoftonline.com/' + cfg.tenantId,
+      redirectUri: location.origin + location.pathname,
+    },
+    cache: { cacheLocation: 'localStorage' },
+  });
+  await msalApp.initialize();
+  const res = await msalApp.handleRedirectPromise().catch(e => { console.error(e); return null; });
+  if (res && res.account) account = res.account;
+  if (!account) account = msalApp.getAllAccounts()[0] || null;
+}
+async function getToken(){
+  try {
+    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account });
+    return r.accessToken;
+  } catch (e) {
+    await msalApp.acquireTokenRedirect({ scopes: SCOPES });
+  }
+}
+async function graph(path, opts = {}){
+  const token = await getToken();
+  const r = await fetch(GRAPH + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.headers || {}) },
+  });
+  return r;
+}
+
+// ---------- Résolution du dossier partagé ----------
+function shareId(url){
+  const b64 = btoa(url).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+  return 'u!' + b64;
+}
+async function resolveShare(){
+  const cacheKey = 'stockera_drive_' + cfg.shareLink;
+  const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+  if (cached){ drive = cached; return; }
+  const r = await graph('/shares/' + shareId(cfg.shareLink) + '/driveItem?$select=id,name,folder,parentReference');
+  if (!r.ok) throw new Error('Lien de partage invalide ou droits insuffisants (' + r.status + ')');
+  const it = await r.json();
+  if (!it.folder) throw new Error('Le lien doit pointer vers un dossier, pas un fichier.');
+  drive = { driveId: it.parentReference.driveId, folderId: it.id };
+  localStorage.setItem(cacheKey, JSON.stringify(drive));
+}
+function fileUrl(name){ return '/drives/' + drive.driveId + '/items/' + drive.folderId + ':/' + name; }
+
+// ---------- Base de données (JSON + ETag, verrouillage optimiste) ----------
+async function loadDb(){
+  sync('busy', 'synchronisation…');
+  const meta = await graph(fileUrl(DB_FILE) + '?$select=eTag');
+  if (meta.status === 404){                    // première utilisation : créer la base
+    db = { records: [] }; dbEtag = null;
+    await putDb(false);
+  } else if (meta.ok){
+    dbEtag = (await meta.json()).eTag;
+    const body = await graph(fileUrl(DB_FILE) + ':/content');
+    db = await body.json();
+    if (!db.records) db = { records: [] };
+  } else {
+    throw new Error('Lecture de la base impossible (' + meta.status + ')');
+  }
+  sync('ok', 'à jour · ' + new Date().toLocaleTimeString('fr-BE', {hour:'2-digit',minute:'2-digit'}));
+  render();
+}
+async function putDb(withMatch = true){
+  const headers = { 'Content-Type': 'application/json' };
+  if (withMatch && dbEtag) headers['If-Match'] = dbEtag;
+  const r = await graph(fileUrl(DB_FILE) + ':/content', {
+    method: 'PUT', headers, body: JSON.stringify(db),
+  });
+  if (r.status === 412) return false;          // conflit : quelqu'un a écrit entre-temps
+  if (!r.ok) throw new Error('Écriture impossible (' + r.status + ')');
+  dbEtag = (await r.json()).eTag;
+  return true;
+}
+// Applique une opération sur la base avec relecture/réessai en cas de conflit
+async function saveOp(op){
+  sync('busy', 'enregistrement…');
+  for (let i = 0; i < 4; i++){
+    op(db);
+    if (await putDb()) {
+      sync('ok', 'à jour · ' + new Date().toLocaleTimeString('fr-BE', {hour:'2-digit',minute:'2-digit'}));
+      render();
+      return;
+    }
+    await loadDb();                            // recharge la version fraîche puis réessaie
+  }
+  sync('err', 'conflit'); toast('Conflit d\u2019écriture répété — réessayez.', true);
+}
+
+// ---------- Rendu de la liste ----------
+function render(){
+  const q = $('searchInput').value.trim().toLowerCase();
+  const recs = db.records
+    .filter(r => !q || [r.nom, r.ref, r.description, r.gtin13, r.gtin14, r.emplacement]
+      .some(v => (v || '').toLowerCase().includes(q)))
+    .sort((a, b) => (a.emplacement || '').localeCompare(b.emplacement || '') || (a.nom || '').localeCompare(b.nom || ''));
+
+  $('count').textContent = recs.length + ' article(s)' + (q ? ' — filtre actif' : '') + ' · ' + db.records.length + ' au total';
+  const list = $('list');
+  if (!recs.length){
+    list.innerHTML = '<div class="empty">Aucun article' + (q ? ' pour cette recherche' : '. Scannez un code pour commencer.') + '</div>';
+    return;
+  }
+  list.innerHTML = recs.map(r => `
+    <div class="item" data-id="${r.id}">
+      <div class="name">${esc(r.nom)}<span class="ref">${esc(r.ref || '')}</span></div>
+      <div class="desc">${esc(r.description || '')}</div>
+      <div class="codes">UNIT <b>${esc(r.gtin13 || '—')}</b> &nbsp; BOÎTE <b>${esc(r.gtin14 || '—')}</b>${r.qtyBox ? ' ×' + esc(r.qtyBox) : ''}</div>
+      <div class="meta">
+        <span class="tag ruban">${esc(r.ruban)} mm</span>
+        ${r.emplacement ? '<span class="tag">' + esc(r.emplacement) + '</span>' : ''}
+        <span>${esc(r.updatedBy || '')} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-BE') : ''}</span>
+      </div>
+      <div class="actions"><button class="btn ghost" data-edit="${r.id}">Modifier</button></div>
+    </div>`).join('');
+  list.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openForm(b.dataset.edit));
+}
+
+// ---------- Formulaire ----------
+function openForm(id = null, prefill = {}){
+  editingId = id;
+  const r = id ? db.records.find(x => x.id === id) : prefill;
+  $('formTitle').textContent = id ? 'Modifier l\u2019article' : 'Nouvel article';
+  $('formSub').textContent = id ? 'Dernière modification : ' + (r.updatedBy || '—') : 'Complétez la fiche puis enregistrez.';
+  $('fNom').value = r.nom || '';
+  $('fRef').value = r.ref || '';
+  $('fDesc').value = r.description || '';
+  $('fG13').value = r.gtin13 || '';
+  $('fG14').value = r.gtin14 || '';
+  $('fQty').value = r.qtyBox || '';
+  $('fEmpl').value = r.emplacement || '';
+  $('fRuban').value = r.ruban || '24';
+  $('btnFormDelete').classList.toggle('hidden', !id);
+  checkGtinFields();
+  $('formModal').classList.remove('hidden');
+  $('fNom').focus();
+}
+function closeForm(){ $('formModal').classList.add('hidden'); editingId = null; }
+
+function checkGtinFields(){
+  const mark = (inp, chk) => {
+    const v = inp.value.trim();
+    chk.textContent = !v ? '' : (isValidGtin(v) ? '✓ valide' : '✗ check digit invalide');
+    chk.className = !v ? '' : (isValidGtin(v) ? 'gtin-ok' : 'gtin-bad');
+  };
+  mark($('fG13'), $('fG13Chk'));
+  mark($('fG14'), $('fG14Chk'));
+}
+$('fG13').addEventListener('input', checkGtinFields);
+$('fG14').addEventListener('input', checkGtinFields);
+$('btnDerive').onclick = () => {
+  const g = $('fG13').value.trim();
+  if (g.length === 13 && isValidGtin(g)){ $('fG14').value = derive14(g); checkGtinFields(); }
+  else toast('GTIN unitaire manquant ou invalide.', true);
+};
+
+$('btnFormSave').onclick = async () => {
+  const rec = {
+    nom: $('fNom').value.trim(),
+    ref: $('fRef').value.trim(),
+    description: $('fDesc').value.trim(),
+    gtin13: $('fG13').value.trim(),
+    gtin14: $('fG14').value.trim(),
+    qtyBox: $('fQty').value.trim(),
+    emplacement: $('fEmpl').value.trim(),
+    ruban: $('fRuban').value,
+    updatedAt: new Date().toISOString(),
+    updatedBy: account ? (account.name || account.username) : '',
+  };
+  if (!rec.nom) return toast('Le nom produit est obligatoire.', true);
+  for (const g of [rec.gtin13, rec.gtin14])
+    if (g && !isValidGtin(g)) return toast('Un GTIN a un check digit invalide.', true);
+  // doublon : même GTIN unitaire sur une autre fiche
+  const dup = db.records.find(x => x.id !== editingId && rec.gtin13 && x.gtin13 === rec.gtin13);
+  if (dup && !confirm('Le GTIN ' + rec.gtin13 + ' existe déjà (' + dup.nom + '). Enregistrer quand même ?')) return;
+
+  const id = editingId;
+  closeForm();
+  await saveOp(d => {
+    if (id){
+      const i = d.records.findIndex(x => x.id === id);
+      if (i >= 0) d.records[i] = { ...d.records[i], ...rec };
+      else d.records.push({ id, ...rec });     // la fiche avait été supprimée entre-temps
+    } else {
+      d.records.push({ id: crypto.randomUUID(), ...rec });
+    }
+  });
+  toast('Article enregistré.');
+};
+$('btnFormDelete').onclick = async () => {
+  if (!editingId || !confirm('Supprimer définitivement cette fiche ?')) return;
+  const id = editingId; closeForm();
+  await saveOp(d => { d.records = d.records.filter(x => x.id !== id); });
+  toast('Article supprimé.');
+};
+$('btnFormCancel').onclick = closeForm;
+$('btnNew').onclick = () => openForm(null, {});
+
+// ---------- Scan ----------
+function handleScan(codeRaw){
+  const code = codeRaw.trim();
+  if (!code) return;
+  $('scanInput').value = '';
+  const digits = code.replace(/\D/g, '');
+
+  // 1) fiche existante ?
+  const found = db.records.find(r => r.gtin13 === digits || r.gtin14 === digits || (r.ref && r.ref.toLowerCase() === code.toLowerCase()));
+  if (found){ openForm(found.id); return; }
+
+  // 2) nouveau : préremplir selon le format
+  if (digits.length === 13 && isValidGtin(digits)){
+    openForm(null, { gtin13: digits, gtin14: derive14(digits) });
+    toast('Nouveau produit — GTIN boîte proposé automatiquement, vérifiez-le.');
+  } else if (digits.length === 14 && isValidGtin(digits)){
+    openForm(null, { gtin14: digits, gtin13: derive13(digits) });
+    toast('Code conditionnement scanné — GTIN unitaire proposé, vérifiez-le.');
+  } else {
+    // référence fabricant ou code non GS1
+    $('searchInput').value = code; render();
+    openForm(null, { ref: code });
+  }
+}
+$('btnScanGo').onclick = () => handleScan($('scanInput').value);
+$('scanInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleScan($('scanInput').value); });
+$('searchInput').addEventListener('input', render);
+
+// ---------- Caméra ----------
+$('btnCam').onclick = async () => {
+  $('camModal').classList.remove('hidden');
+  camScanner = new Html5Qrcode('reader', {
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.UPC_A,
+    ],
+  });
+  try {
+    await camScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 140 } },
+      txt => { closeCam(); handleScan(txt); },
+      () => {}
+    );
+  } catch (e) { closeCam(); toast('Caméra inaccessible : ' + e, true); }
+};
+function closeCam(){
+  $('camModal').classList.add('hidden');
+  if (camScanner){ camScanner.stop().catch(()=>{}); camScanner = null; }
+}
+$('btnCamClose').onclick = closeCam;
+
+// ---------- Export P-touch (xlsx, 1 feuille par largeur de ruban) ----------
+function buildWorkbook(){
+  const wb = XLSX.utils.book_new();
+  for (const w of ['24', '36']){
+    const rows = db.records.filter(r => r.ruban === w)
+      .sort((a, b) => (a.emplacement || '').localeCompare(b.emplacement || ''))
+      .map(r => ({
+        Nom: r.nom, Reference: r.ref || '', Description: r.description || '',
+        GTIN_Unitaire: r.gtin13 || '', GTIN_Boite: r.gtin14 || '',
+        Qte_Boite: r.qtyBox || '', Emplacement: r.emplacement || '',
+      }));
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{Nom:'',Reference:'',Description:'',GTIN_Unitaire:'',GTIN_Boite:'',Qte_Boite:'',Emplacement:''}]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Ruban_' + w + 'mm');
+  }
+  return wb;
+}
+$('btnExport').onclick = () => {
+  XLSX.writeFile(buildWorkbook(), 'Etiquettes_Ptouch.xlsx');
+  toast('Fichier téléchargé — à lier dans P-touch Editor (database connect).');
+};
+$('btnPublish').onclick = async () => {
+  sync('busy', 'publication…');
+  const buf = XLSX.write(buildWorkbook(), { type: 'array', bookType: 'xlsx' });
+  const r = await graph(fileUrl('Etiquettes_Ptouch.xlsx') + ':/content', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    body: buf,
+  });
+  sync('ok', 'à jour');
+  r.ok ? toast('Etiquettes_Ptouch.xlsx publié dans le dossier partagé.')
+       : toast('Publication impossible (' + r.status + ')', true);
+};
+
+// ---------- Configuration ----------
+$('btnCfg').onclick = () => {
+  if (cfg){ $('cfgTenant').value = cfg.tenantId; $('cfgClient').value = cfg.clientId; $('cfgShare').value = cfg.shareLink; }
+  show('viewCfg');
+};
+$('btnCfgSave').onclick = () => {
+  cfg = {
+    tenantId: $('cfgTenant').value.trim(),
+    clientId: $('cfgClient').value.trim(),
+    shareLink: $('cfgShare').value.trim(),
+  };
+  if (!cfg.tenantId || !cfg.clientId || !cfg.shareLink) return toast('Les trois champs sont obligatoires.', true);
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  location.reload();
+};
+$('btnUser').onclick = () => { if (confirm('Se déconnecter ?')) msalApp.logoutRedirect(); };
+$('btnLogin').onclick = () => msalApp.loginRedirect({ scopes: SCOPES });
+
+// ---------- Rafraîchissement auto ----------
+document.addEventListener('visibilitychange', () => { if (!document.hidden && drive) loadDb().catch(()=>{}); });
+setInterval(() => { if (drive && document.visibilityState === 'visible' && $('formModal').classList.contains('hidden')) loadDb().catch(()=>{}); }, 90000);
+
+// ---------- Démarrage ----------
+(async function boot(){
+  if (!cfg){ show('viewCfg'); return; }
+  try {
+    await initAuth();
+    if (!account){ show('viewLogin'); return; }
+    $('btnUser').textContent = account.name || account.username;
+    $('btnUser').classList.remove('hidden');
+    show('viewMain');
+    await resolveShare();
+    await loadDb();
+    $('scanInput').focus();
+  } catch (e) {
+    console.error(e);
+    sync('err', 'erreur');
+    toast(String(e.message || e), true);
+    show('viewMain');
+  }
+})();
+</script>
+</body>
+</html>
