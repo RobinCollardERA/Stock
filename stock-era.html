@@ -159,7 +159,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.0.1</small></h1>
+  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.2.0</small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -171,7 +171,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   <!-- ===== Vue configuration ===== -->
   <section id="viewCfg" class="hidden">
     <div class="card">
-      <h2>Configuration (une seule fois par appareil)</h2>
+      <h2>Paramètres avancés (préconfigurés — ne modifier que si nécessaire)</h2>
       <label>ID de l'annuaire (locataire) — Entra ID</label>
       <input id="cfgTenant" class="mono" placeholder="ex. 9d05…-…">
       <label>ID d'application (client) — Entra ID</label>
@@ -180,6 +180,10 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
       <input id="cfgShare" placeholder="https://…sharepoint.com/… ou https://1drv.ms/…">
       <p class="hint">Le lien doit pointer vers le <b>dossier</b> qui contiendra la base (stock-db.json)
       et les fichiers d'export P-touch. Voir le guide de mise en service.</p>
+      <label>Clé API Anthropic (optionnel — précomplétion IA des fiches)</label>
+      <input id="cfgAiKey" class="mono" type="password" placeholder="sk-ant-…">
+      <p class="hint">Si renseignée, le scan d'un code inconnu interroge Claude (avec recherche web) pour
+      préremplir nom, référence et description. Sans clé, ou si rien n'est trouvé : encodage manuel classique.</p>
       <div class="row" style="margin-top:14px">
         <button class="btn" id="btnCfgSave">Enregistrer et se connecter</button>
       </div>
@@ -283,14 +287,22 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.0
+   Stock E.R.A. — v1.2.0
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
 
 // ---------- Config locale ----------
 const CFG_KEY = 'stockera_cfg';
-let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+// Valeurs préconfigurées E.R.A. : premier lancement sans aucune saisie.
+// (Identifiants non secrets ; le lien de partage n'est utilisable que par un compte E.R.A. authentifié.)
+const DEFAULTS = {
+  tenantId: '9d05703c-3861-4c5e-ba2a-dbddde99f337',
+  clientId: '75ff3cc6-7a42-4022-aec2-1617da737338',
+  shareLink: 'https://eraentreprise-my.sharepoint.com/:f:/g/personal/robin_collard_era-entreprise_eu/IgAKmlHAdJWDT74X3ZGSAn96Adh05ulqxYJ1wbdvzNX_NA0?e=NS4cyz',
+  anthropicKey: '',
+};
+let cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') };
 
 // ---------- État ----------
 let msalApp = null, account = null;
@@ -541,6 +553,57 @@ $('btnFormDelete').onclick = async () => {
 $('btnFormCancel').onclick = closeForm;
 $('btnNew').onclick = () => openForm(null, {});
 
+// ---------- Précomplétion IA (optionnelle, via API Anthropic) ----------
+let aiGen = 0;                                 // compteur pour ignorer les réponses obsolètes
+async function aiLookup(query){
+  const prompt = 'Identifie ce produit (matériel électrique/industriel probable) : ' + query +
+    '. Utilise la recherche web si nécessaire. Réponds UNIQUEMENT avec un objet JSON strict, sans texte autour ni markdown : ' +
+    '{"found":true,"marque":"…","nom":"…","reference":"…","description":"…","qte_boite":"…"} ' +
+    'où nom = désignation courte (ex. "iC60H C4"), reference = référence fabricant (ex. "A9F84204"), ' +
+    'description = caractéristiques techniques en une ligne, en français, qte_boite = quantité par conditionnement si connue, sinon "". ' +
+    'Si le produit n\u2019est pas identifiable avec certitude, réponds {"found":false}.';
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: ctrl.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': cfg.anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const txt = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    const m = txt.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const j = JSON.parse(m[0]);
+    return j && j.found ? j : null;
+  } catch (e) { return null; }                 // indisponible / timeout / clé invalide -> mode manuel
+  finally { clearTimeout(timer); }
+}
+async function aiPrefill(query){
+  if (!cfg || !cfg.anthropicKey) return;       // pas de clé configurée : encodage manuel
+  const gen = ++aiGen;
+  $('formSub').textContent = 'Recherche IA du produit en cours…';
+  const r = await aiLookup(query);
+  if (gen !== aiGen || $('formModal').classList.contains('hidden')) return;  // fiche fermée ou nouveau scan entre-temps
+  if (!r){ $('formSub').textContent = 'Recherche IA sans résultat — complétez manuellement.'; return; }
+  if (!$('fNom').value && r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim();
+  if (!$('fRef').value && r.reference) $('fRef').value = r.reference;
+  if (!$('fDesc').value && r.description) $('fDesc').value = r.description;
+  if (!$('fQty').value && r.qte_boite) $('fQty').value = String(r.qte_boite);
+  $('formSub').textContent = 'Pré-complété par IA — vérifiez avant d\u2019enregistrer.';
+}
+
 // ---------- Scan ----------
 function handleScan(codeRaw){
   const code = codeRaw.trim();
@@ -556,13 +619,16 @@ function handleScan(codeRaw){
   if (digits.length === 13 && isValidGtin(digits)){
     openForm(null, { gtin13: digits, gtin14: derive14(digits) });
     toast('Nouveau produit — GTIN boîte proposé automatiquement, vérifiez-le.');
+    aiPrefill('GTIN/EAN-13 ' + digits);
   } else if (digits.length === 14 && isValidGtin(digits)){
     openForm(null, { gtin14: digits, gtin13: derive13(digits) });
     toast('Code conditionnement scanné — GTIN unitaire proposé, vérifiez-le.');
+    aiPrefill('GTIN-14 conditionnement ' + digits);
   } else {
     // référence fabricant ou code non GS1
     $('searchInput').value = code; render();
     openForm(null, { ref: code });
+    aiPrefill('r\u00e9f\u00e9rence fabricant "' + code + '"');
   }
 }
 $('btnScanGo').onclick = () => handleScan($('scanInput').value);
@@ -629,7 +695,7 @@ $('btnPublish').onclick = async () => {
 
 // ---------- Configuration ----------
 $('btnCfg').onclick = () => {
-  if (cfg){ $('cfgTenant').value = cfg.tenantId; $('cfgClient').value = cfg.clientId; $('cfgShare').value = cfg.shareLink; }
+  if (cfg){ $('cfgTenant').value = cfg.tenantId; $('cfgClient').value = cfg.clientId; $('cfgShare').value = cfg.shareLink; $('cfgAiKey').value = cfg.anthropicKey || ''; }
   show('viewCfg');
 };
 $('btnCfgSave').onclick = () => {
@@ -637,8 +703,9 @@ $('btnCfgSave').onclick = () => {
     tenantId: $('cfgTenant').value.trim(),
     clientId: $('cfgClient').value.trim(),
     shareLink: $('cfgShare').value.trim(),
+    anthropicKey: $('cfgAiKey').value.trim(),
   };
-  if (!cfg.tenantId || !cfg.clientId || !cfg.shareLink) return toast('Les trois champs sont obligatoires.', true);
+  if (!cfg.tenantId || !cfg.clientId || !cfg.shareLink) return toast('Les trois premiers champs sont obligatoires.', true);
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   location.reload();
 };
@@ -651,7 +718,6 @@ setInterval(() => { if (drive && document.visibilityState === 'visible' && $('fo
 
 // ---------- Démarrage ----------
 (async function boot(){
-  if (!cfg){ show('viewCfg'); return; }
   try {
     await initAuth();
     if (!account){ show('viewLogin'); return; }
