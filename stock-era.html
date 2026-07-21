@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Stock E.R.A. — Encodage étiquettes</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,8 +19,10 @@
   --line:#333B44;
   --txt:#E8ECEF;
   --txt-dim:#9AA6B0;
-  --accent:#F5B800;     /* jaune signalétique */
-  --accent-ink:#1A1400;
+  --accent:#FF7F00;     /* orange ERA */
+  --accent-ink:#241000;
+  --blue:#298DBF;       /* bleu ERA */
+  --blue-l:#7FB7D8;     /* bleu clair ERA */
   --ok:#3FB27F;
   --danger:#E4573D;
   --radius:6px;
@@ -51,7 +54,8 @@ header{
 /* motif code-barres du logo */
 .logo-bars{display:flex;gap:2px;height:26px;align-items:stretch}
 .logo-bars span{background:var(--accent);width:3px}
-.logo-bars span:nth-child(2){width:6px}
+.logo-bars span:nth-child(1){background:var(--blue)}
+.logo-bars span:nth-child(2){width:6px;background:var(--blue-l)}
 .logo-bars span:nth-child(4){width:2px}
 .logo-bars span:nth-child(5){width:5px}
 header h1{
@@ -71,9 +75,9 @@ header h1 small{color:var(--txt-dim);font-weight:600;font-size:14px;margin-left:
 /* ============ Layout ============ */
 main{max-width:860px;margin:0 auto;padding:14px 14px 90px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
-.card h2{font-family:'Barlow Condensed',sans-serif;font-size:19px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;color:var(--accent)}
+.card h2{font-family:'Barlow Condensed',sans-serif;font-size:19px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;color:var(--blue-l)}
 label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-weight:500}
-.row{display:flex;gap:10px}
+.row{display:flex;gap:10px;align-items:flex-end}
 .row>*{flex:1}
 .btn{background:var(--accent);color:var(--accent-ink);font-weight:600;padding:11px 16px}
 .btn:active{transform:translateY(1px)}
@@ -82,8 +86,17 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .hint{font-size:12.5px;color:var(--txt-dim);margin-top:6px}
 
+/* ============ Barre d'actions ============ */
+#toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+#toolbar #btnNew{grid-column:1/-1}
+@media (min-width:561px){
+  #toolbar{grid-template-columns:auto auto auto;justify-content:start}
+  #toolbar #btnNew{grid-column:auto}
+}
+
 /* ============ Barre de scan ============ */
 #scanBar{
+  position:relative;
   display:flex;gap:8px;align-items:stretch;
   background:var(--surface);border:1px solid var(--line);
   border-left:4px solid var(--accent);
@@ -98,7 +111,6 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 #btnScanGo{padding:0 16px}
 
 /* ============ Liste ============ */
-#searchInput{margin-bottom:10px}
 .item{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:12px 14px;margin-bottom:8px;
@@ -108,13 +120,24 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 .item .name .ref{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;margin-left:8px}
 .item .desc{grid-column:1;color:var(--txt-dim);font-size:13px}
 .item .codes{grid-column:1;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--txt-dim)}
+.item .codes .cd{display:inline-block;white-space:nowrap;margin-right:14px}
+.selbox{width:18px;height:18px;accent-color:var(--accent);margin-right:10px;vertical-align:-3px;cursor:pointer}
 .item .codes b{color:var(--txt);font-weight:400}
 .item .meta{grid-column:1;font-size:12px;color:var(--txt-dim)}
 .item .actions{grid-row:1/5;grid-column:2;display:flex;flex-direction:column;gap:6px}
 .item .actions button{padding:8px 12px;font-size:13px}
 .tag{display:inline-block;background:var(--surface2);border:1px solid var(--line);
-  border-radius:3px;padding:1px 6px;font-size:11.5px;color:var(--txt-dim);margin-right:6px}
-.tag.ruban{color:var(--accent);border-color:var(--accent)}
+  border-radius:3px;padding:1px 6px;font-size:11.5px;color:var(--txt-dim);margin-right:6px;
+  white-space:nowrap;margin-bottom:3px}
+.tag.empl{color:var(--txt);border-color:#5A6572}
+.tag.min{color:var(--ok);border-color:var(--ok)}
+.item .who{display:block;font-size:11px;color:var(--txt-dim);margin-top:2px}
+.tag.ruban{color:var(--blue-l);border-color:var(--blue-l)}
+.tag.toprint{color:var(--accent);border-color:var(--accent);font-weight:600}
+#filters{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap;align-items:center}
+.chip{background:var(--surface2);border:1px solid var(--line);color:var(--txt-dim);padding:6px 12px;font-size:13px;border-radius:20px}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+#btnMarkPrinted{margin-left:auto;font-size:13px;padding:6px 12px}
 #count{font-size:13px;color:var(--txt-dim);margin:4px 0 10px}
 .empty{color:var(--txt-dim);text-align:center;padding:30px 10px;font-size:14px}
 
@@ -126,7 +149,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 }
 .modal{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);
   border-radius:var(--radius);padding:18px;width:100%;max-width:560px}
-.modal h2{font-family:'Barlow Condensed',sans-serif;font-size:20px;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.modal h2{font-family:'Barlow Condensed',sans-serif;font-size:20px;text-transform:uppercase;color:var(--blue-l);margin-bottom:4px}
 .gtin-ok{color:var(--ok);font-size:12px} .gtin-bad{color:var(--danger);font-size:12px}
 .modal .foot{display:flex;gap:10px;margin-top:18px}
 .modal .foot .btn{flex:1}
@@ -144,8 +167,41 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 }
 #toast.err{border-left-color:var(--danger)}
 
+/* ============ Bandeau statut d'impression (fiche) ============ */
+#printStatus{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:14px;padding:10px 12px;background:var(--surface2);
+  border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--radius)}
+#printStatus.done{border-left-color:var(--ok)}
+#printStatusTxt{font-size:13.5px}
+#printStatusTxt b{color:var(--accent)}
+
+/* ============ Champ + caméra, aperçu étiquette ============ */
+.scanline{display:flex;gap:6px}
+.fieldcam{background:var(--surface2);border:1px solid var(--line);color:var(--accent);padding:0 10px;font-size:16px}
+#lblWrap{background:#fff;border-radius:4px;padding:8px;overflow-x:auto;margin-top:4px}
+#lbl{color:#000;font-family:Arial,Helvetica,sans-serif;border:1px dashed #aaa;padding:5px 10px;display:inline-flex;flex-direction:column;justify-content:space-between;min-width:330px}
+#lbl .l1{font-weight:bold;font-size:15px;white-space:nowrap}
+#lbl .l1 span{font-weight:normal;font-family:Consolas,monospace;font-size:12px;margin-left:8px}
+#lbl .l2{font-size:11px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px}
+#lbl .bars{display:flex;gap:18px;align-items:flex-end}
+#lbl .bc{display:flex;flex-direction:row;align-items:flex-end;gap:3px}
+#lbl .bcap{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:bold;letter-spacing:.6px;color:#000;line-height:1}
+#lbl .l3{font-size:11px;font-style:italic;font-family:Consolas,monospace;color:#111}
+#lbl .bars svg{display:block}
+#lbl .empl{font-size:10px;color:#444;align-self:flex-end}
+
+/* ============ Suggestions prédictives ============ */
+#sugg{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--surface2);
+  border:1px solid var(--line);border-radius:var(--radius);z-index:30;max-height:300px;overflow:auto}
+#sugg .sg{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
+#sugg .sg:last-child{border-bottom:none}
+#sugg .sg:hover{background:var(--surface)}
+#sugg .sg b{font-size:14px}
+#sugg .sg span{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:12px;margin-left:8px}
+#sugg .sg small{display:block;color:var(--txt-dim);font-size:12px}
+
 @media (max-width:560px){
-  .row{flex-direction:column;gap:0}
+  .row{flex-direction:column;gap:0;align-items:stretch}
   header h1 small{display:none}
   .item .actions{flex-direction:row}
 }
@@ -159,7 +215,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.2.0</small></h1>
+  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.5.7</small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -203,18 +259,27 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   <section id="viewMain" class="hidden">
 
     <div id="scanBar">
-      <input id="scanInput" placeholder="Scanner un code… (douchette ou saisie)" autocomplete="off" inputmode="numeric">
+      <input id="scanInput" placeholder="Scanner ou rechercher (nom, description, code…)" autocomplete="off">
       <button id="btnScanGo" class="btn">OK</button>
       <button id="btnCam" title="Scanner avec la caméra">📷</button>
+      <div id="sugg" class="hidden"></div>
     </div>
 
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn ghost" id="btnNew">＋ Nouvel article</button>
-      <button class="btn ghost" id="btnExport">⬇ Fichier P-touch (xlsx)</button>
-      <button class="btn ghost" id="btnPublish">☁ Publier l'export sur OneDrive</button>
+    <div id="toolbar">
+      <button class="btn" id="btnNew">＋ Nouvel article</button>
+      <button class="btn ghost" id="btnExport">⬇ Export P-touch</button>
+      <button class="btn ghost" id="btnPublish">☁ Publier OneDrive</button>
     </div>
 
-    <input id="searchInput" placeholder="Rechercher (nom, référence, GTIN, emplacement…)">
+    <div id="filters">
+      <button class="chip on" data-f="all">Tous</button>
+      <button class="chip" data-f="todo">À imprimer</button>
+      <button class="chip" data-f="done">Imprimées</button>
+      <button class="chip hidden" id="btnSelMode">☑ Sélectionner</button>
+      <button class="chip hidden" id="btnSelAll">Tout cocher</button>
+      <button class="btn ghost hidden" id="btnMarkPrinted">✔ Marquer comme imprimées</button>
+      <button class="btn ghost hidden" id="btnMarkTodo">↺ Repasser en À imprimer</button>
+    </div>
     <div id="count"></div>
     <div id="list"></div>
   </section>
@@ -228,42 +293,56 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <p class="hint" id="formSub"></p>
 
     <label>Nom produit *</label>
-    <input id="fNom" placeholder="ex. iC60H C4">
+    <input id="fNom" maxlength="30" placeholder="ex. iC60H C4 (30 car. max)">
     <label>Référence fabricant</label>
-    <input id="fRef" class="mono" placeholder="ex. A9F84204">
+    <input id="fRef" class="mono" maxlength="15" placeholder="ex. A9F84204">
     <label>Description</label>
-    <textarea id="fDesc" rows="2" placeholder="ex. Disjoncteur 2P 4A courbe C"></textarea>
+    <textarea id="fDesc" rows="2" maxlength="60" placeholder="ex. Disjoncteur 2P 4A courbe C (60 car. max)"></textarea>
 
     <div class="row">
       <div>
-        <label>GTIN unitaire (EAN-13) <span id="fG13Chk"></span></label>
-        <input id="fG13" class="mono" inputmode="numeric" maxlength="14">
+        <label>Code-barres unité <span id="fG13Chk"></span></label>
+        <div class="scanline">
+          <input id="fG13" class="mono" inputmode="numeric" maxlength="14" placeholder="code sur le produit">
+          <button type="button" class="fieldcam" data-tgt="fG13" title="Scanner ce code avec la caméra">📷</button>
+        </div>
       </div>
       <div>
-        <label>GTIN conditionnement <span id="fG14Chk"></span></label>
-        <input id="fG14" class="mono" inputmode="numeric" maxlength="14">
+        <label>Code-barres boîte <span id="fG14Chk"></span></label>
+        <div class="scanline">
+          <input id="fG14" class="mono" inputmode="numeric" maxlength="14" placeholder="code sur la boîte">
+          <button type="button" class="fieldcam" data-tgt="fG14" title="Scanner ce code avec la caméra">📷</button>
+        </div>
       </div>
     </div>
     <button class="btn ghost" id="btnDerive" style="margin-top:8px;font-size:13px;padding:7px 12px">
-      Dériver le GTIN-14 depuis l'unitaire
+      Calculer le code boîte depuis le code unité
     </button>
 
     <div class="row">
       <div>
-        <label>Qté par conditionnement</label>
+        <label>Qté par boîte</label>
         <input id="fQty" inputmode="numeric" placeholder="ex. 10">
       </div>
       <div>
-        <label>Emplacement rayonnage</label>
-        <input id="fEmpl" placeholder="ex. R03-B2">
+        <label>Stock minimum</label>
+        <input id="fStockMin" inputmode="numeric" placeholder="ex. 20">
       </div>
       <div>
-        <label>Ruban étiquette</label>
+        <label>Ruban</label>
         <select id="fRuban">
           <option value="24">24 mm</option>
           <option value="36">36 mm</option>
         </select>
       </div>
+    </div>
+
+    <label>Aperçu de l'étiquette (échelle indicative)</label>
+    <div id="lblWrap"><div id="lbl"></div></div>
+
+    <div id="printStatus" class="hidden">
+      <span id="printStatusTxt"></span>
+      <button class="btn ghost" id="btnTogglePrint" style="font-size:13px;padding:6px 12px;white-space:nowrap"></button>
     </div>
 
     <div class="foot">
@@ -287,7 +366,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.2.0
+   Stock E.R.A. — v1.5.7
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -303,6 +382,18 @@ const DEFAULTS = {
   anthropicKey: '',
 };
 let cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') };
+
+// ---------- Mode démo : ouvrir l'app avec « ?demo » dans l'URL ----------
+// Base locale en mémoire, aucune connexion Microsoft — pour tester et former sans risque.
+const DEMO = new URLSearchParams(location.search).has('demo') || window.__FORCE_DEMO === true;
+const DEMO_RECORDS = [
+  { id:'d1', nom:'Schneider iC60H C4', ref:'A9F84204', description:'Disjoncteur modulaire 2P 4A courbe C',
+    gtin13:'3606480082528', gtin14:'13606480082525', qtyBox:'10', stockMin:'20', ruban:'24',
+    updatedBy:'Démo', updatedAt:new Date().toISOString(), printedAt:new Date(Date.now() - 86400000).toISOString() },
+  { id:'d2', nom:'EXEMPLE Contacteur 25A', ref:'EX-CT25', description:'Contacteur 2NO 25A 230V (fiche exemple)',
+    gtin13:'3606480000010', gtin14:'13606480000017', qtyBox:'6', stockMin:'4', ruban:'36',
+    updatedBy:'Démo', updatedAt:new Date().toISOString() },
+];
 
 // ---------- État ----------
 let msalApp = null, account = null;
@@ -410,7 +501,7 @@ async function loadDb(){
   } else if (meta.ok){
     dbEtag = (await meta.json()).eTag;
     const body = await graph(fileUrl(DB_FILE) + ':/content');
-    db = await body.json();
+  db = await body.json();
     if (!db.records) db = { records: [] };
   } else {
     throw new Error('Lecture de la base impossible (' + meta.status + ')');
@@ -422,7 +513,7 @@ async function putDb(withMatch = true){
   const headers = { 'Content-Type': 'application/json' };
   if (withMatch && dbEtag) headers['If-Match'] = dbEtag;
   const r = await graph(fileUrl(DB_FILE) + ':/content', {
-    method: 'PUT', headers, body: JSON.stringify(db),
+     method: 'PUT', headers, body: JSON.stringify(db),
   });
   if (r.status === 412) return false;          // conflit : quelqu'un a écrit entre-temps
   if (!r.ok) throw new Error('Écriture impossible (' + r.status + ')');
@@ -431,6 +522,11 @@ async function putDb(withMatch = true){
 }
 // Applique une opération sur la base avec relecture/réessai en cas de conflit
 async function saveOp(op){
+  if (DEMO){
+    op(db); render(); sync('ok', 'MODE DÉMO — base locale, non partagée');
+    try { if (!window.__FORCE_DEMO) localStorage.setItem('stockera_demo_db', JSON.stringify(db)); } catch (e) {}
+    return;
+  }
   sync('busy', 'enregistrement…');
   for (let i = 0; i < 4; i++){
     op(db);
@@ -445,12 +541,16 @@ async function saveOp(op){
 }
 
 // ---------- Rendu de la liste ----------
+let filterMode = 'all';   // all | todo | done
+let selected = new Set(); // sélection de fiches (mode sélection)
+let selectMode = false;   // cases à cocher visibles uniquement quand activé (évite les taps accidentels)
 function render(){
-  const q = $('searchInput').value.trim().toLowerCase();
+  const q = $('scanInput').value.trim().toLowerCase();
   const recs = db.records
-    .filter(r => !q || [r.nom, r.ref, r.description, r.gtin13, r.gtin14, r.emplacement]
+    .filter(r => filterMode === 'all' || (filterMode === 'todo' ? !r.printedAt : !!r.printedAt))
+    .filter(r => !q || [r.nom, r.ref, r.description, r.gtin13, r.gtin14]
       .some(v => (v || '').toLowerCase().includes(q)))
-    .sort((a, b) => (a.emplacement || '').localeCompare(b.emplacement || '') || (a.nom || '').localeCompare(b.nom || ''));
+    .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
 
   $('count').textContent = recs.length + ' article(s)' + (q ? ' — filtre actif' : '') + ' · ' + db.records.length + ' au total';
   const list = $('list');
@@ -460,18 +560,70 @@ function render(){
   }
   list.innerHTML = recs.map(r => `
     <div class="item" data-id="${r.id}">
-      <div class="name">${esc(r.nom)}<span class="ref">${esc(r.ref || '')}</span></div>
+      <div class="name">${selectMode && filterMode !== 'all' ? '<input type="checkbox" class="selbox" data-sel="' + r.id + '"' + (selected.has(r.id) ? ' checked' : '') + '>' : ''}${esc(r.nom)}<span class="ref">${esc(r.ref || '')}</span></div>
       <div class="desc">${esc(r.description || '')}</div>
-      <div class="codes">UNIT <b>${esc(r.gtin13 || '—')}</b> &nbsp; BOÎTE <b>${esc(r.gtin14 || '—')}</b>${r.qtyBox ? ' ×' + esc(r.qtyBox) : ''}</div>
+      <div class="codes"><span class="cd">UNITÉ <b>${esc(r.gtin13 || '—')}</b></span><span class="cd">BOÎTE <b>${esc(r.gtin14 || '—')}</b>${r.qtyBox ? ' ×' + esc(r.qtyBox) : ''}</span></div>
       <div class="meta">
+        ${r.printedAt ? '<span class="tag">imprimée ' + new Date(r.printedAt).toLocaleDateString('fr-BE') + '</span>' : '<span class="tag toprint">À IMPRIMER</span>'}
         <span class="tag ruban">${esc(r.ruban)} mm</span>
-        ${r.emplacement ? '<span class="tag">' + esc(r.emplacement) + '</span>' : ''}
-        <span>${esc(r.updatedBy || '')} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-BE') : ''}</span>
+        ${r.stockMin ? '<span class="tag min">stock min ' + esc(r.stockMin) + '</span>' : ''}
+        <span class="who">${esc(r.updatedBy || '')} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('fr-BE') : ''}</span>
       </div>
       <div class="actions"><button class="btn ghost" data-edit="${r.id}">Modifier</button></div>
     </div>`).join('');
   list.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openForm(b.dataset.edit));
+  list.querySelectorAll('[data-sel]').forEach(cb => cb.onchange = () => {
+    cb.checked ? selected.add(cb.dataset.sel) : selected.delete(cb.dataset.sel);
+    syncSelUi();
+  });
+  $('btnSelMode').classList.toggle('hidden', filterMode === 'all');
+  $('btnSelMode').classList.toggle('on', selectMode);
+  $('btnSelAll').classList.toggle('hidden', !(selectMode && filterMode !== 'all' && recs.length));
+  $('btnMarkPrinted').classList.toggle('hidden', filterMode !== 'todo');
+  $('btnMarkTodo').classList.toggle('hidden', filterMode !== 'done');
+  $('btnMarkPrinted').disabled = !(selectMode && selected.size);
+  $('btnMarkTodo').disabled = !(selectMode && selected.size);
+  syncSelUi();
 }
+function syncSelUi(){
+  $('btnMarkPrinted').textContent = '✔ Marquer comme imprimées' + (selected.size ? ' (' + selected.size + ')' : '');
+  $('btnMarkTodo').textContent = '↺ Repasser en À imprimer' + (selected.size ? ' (' + selected.size + ')' : '');
+}
+document.querySelectorAll('#filters .chip').forEach(c => { if (!c.dataset.f) return; c.onclick = () => {
+  filterMode = c.dataset.f;
+  selected.clear();
+  selectMode = false;
+  document.querySelectorAll('#filters .chip').forEach(x => { if (x.dataset.f) x.classList.toggle('on', x === c); });
+  render();
+}; });
+$('btnSelMode').onclick = () => { selectMode = !selectMode; selected.clear(); render(); };
+$('btnSelAll').onclick = () => {
+  const q = $('scanInput').value.trim().toLowerCase();
+  db.records
+    .filter(r => filterMode === 'todo' ? !r.printedAt : !!r.printedAt)
+    .filter(r => !q || [r.nom, r.ref, r.description, r.gtin13, r.gtin14].some(v => (v || '').toLowerCase().includes(q)))
+    .forEach(r => selected.add(r.id));
+  render();
+};
+$('btnMarkPrinted').onclick = async () => {
+  const ids = db.records.filter(r => !r.printedAt && selected.has(r.id)).map(r => r.id);
+  if (!ids.length) return;
+  if (!confirm('Marquer ' + ids.length + ' étiquette(s) comme imprimée(s) ?')) return;
+  const now = new Date().toISOString();
+  await saveOp(d => d.records.forEach(r => { if (ids.includes(r.id)) r.printedAt = now; }));
+  selected.clear();
+  render();
+  toast(ids.length + ' étiquette(s) marquée(s) comme imprimée(s).');
+};
+$('btnMarkTodo').onclick = async () => {
+  const ids = db.records.filter(r => r.printedAt && selected.has(r.id)).map(r => r.id);
+  if (!ids.length) return toast('Cochez d\u2019abord les étiquettes concernées.', true);
+  if (!confirm('Repasser ' + ids.length + ' étiquette(s) en « À imprimer » ?')) return;
+  await saveOp(d => d.records.forEach(r => { if (ids.includes(r.id)) r.printedAt = null; }));
+  selected.clear();
+  render();
+  toast(ids.length + ' étiquette(s) repassée(s) en « À imprimer ».');
+};
 
 // ---------- Formulaire ----------
 function openForm(id = null, prefill = {}){
@@ -485,19 +637,31 @@ function openForm(id = null, prefill = {}){
   $('fG13').value = r.gtin13 || '';
   $('fG14').value = r.gtin14 || '';
   $('fQty').value = r.qtyBox || '';
-  $('fEmpl').value = r.emplacement || '';
+  $('fStockMin').value = r.stockMin || '';
   $('fRuban').value = r.ruban || '24';
   $('btnFormDelete').classList.toggle('hidden', !id);
+  updatePrintStatusUi(id ? r : null);
   checkGtinFields();
+  renderLabel();
   $('formModal').classList.remove('hidden');
   $('fNom').focus();
 }
 function closeForm(){ $('formModal').classList.add('hidden'); editingId = null; }
+function updatePrintStatusUi(r){
+  const box = $('printStatus');
+  if (!r){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.classList.toggle('done', !!r.printedAt);
+  $('printStatusTxt').innerHTML = r.printedAt
+    ? '✅ Étiquette imprimée le ' + new Date(r.printedAt).toLocaleDateString('fr-BE')
+    : '🖨 <b>Étiquette à imprimer</b>';
+  $('btnTogglePrint').textContent = r.printedAt ? 'Repasser en « À imprimer »' : 'Marquer comme imprimée';
+}
 
 function checkGtinFields(){
   const mark = (inp, chk) => {
     const v = inp.value.trim();
-    chk.textContent = !v ? '' : (isValidGtin(v) ? '✓ valide' : '✗ check digit invalide');
+    chk.textContent = !v ? '' : (isValidGtin(v) ? '✓ valide' : '✗ code invalide');
     chk.className = !v ? '' : (isValidGtin(v) ? 'gtin-ok' : 'gtin-bad');
   };
   mark($('fG13'), $('fG13Chk'));
@@ -507,8 +671,8 @@ $('fG13').addEventListener('input', checkGtinFields);
 $('fG14').addEventListener('input', checkGtinFields);
 $('btnDerive').onclick = () => {
   const g = $('fG13').value.trim();
-  if (g.length === 13 && isValidGtin(g)){ $('fG14').value = derive14(g); checkGtinFields(); }
-  else toast('GTIN unitaire manquant ou invalide.', true);
+  if (g.length === 13 && isValidGtin(g)){ $('fG14').value = derive14(g); checkGtinFields(); renderLabel(); }
+  else toast('Code unité manquant ou invalide.', true);
 };
 
 $('btnFormSave').onclick = async () => {
@@ -519,19 +683,31 @@ $('btnFormSave').onclick = async () => {
     gtin13: $('fG13').value.trim(),
     gtin14: $('fG14').value.trim(),
     qtyBox: $('fQty').value.trim(),
-    emplacement: $('fEmpl').value.trim(),
+    stockMin: $('fStockMin').value.trim(),
     ruban: $('fRuban').value,
     updatedAt: new Date().toISOString(),
     updatedBy: account ? (account.name || account.username) : '',
   };
   if (!rec.nom) return toast('Le nom produit est obligatoire.', true);
   for (const g of [rec.gtin13, rec.gtin14])
-    if (g && !isValidGtin(g)) return toast('Un GTIN a un check digit invalide.', true);
-  // doublon : même GTIN unitaire sur une autre fiche
-  const dup = db.records.find(x => x.id !== editingId && rec.gtin13 && x.gtin13 === rec.gtin13);
-  if (dup && !confirm('Le GTIN ' + rec.gtin13 + ' existe déjà (' + dup.nom + '). Enregistrer quand même ?')) return;
+    if (g && !isValidGtin(g)) return toast('Un code-barres a un chiffre de contrôle invalide.', true);
+  // doublon interdit : même code (unité ou boîte) sur une autre fiche -> proposer d'éditer l'existant
+  const dup = db.records.find(x => x.id !== editingId &&
+    ((rec.gtin13 && x.gtin13 === rec.gtin13) || (rec.gtin14 && x.gtin14 === rec.gtin14)));
+  if (dup){
+    if (confirm('Ce code-barres existe déjà : « ' + dup.nom + ' ».\nOuvrir la fiche existante ?')) openForm(dup.id);
+    else toast('Enregistrement annulé — article déjà encodé.', true);
+    return;
+  }
 
   const id = editingId;
+  const before = id ? db.records.find(x => x.id === id) : null;
+  if (before && before.printedAt){
+    const labelChanged = ['nom','ref','description','gtin13','gtin14','qtyBox','ruban']
+      .some(k => (before[k] || '') !== (rec[k] || ''));
+    rec.printedAt = labelChanged ? null : before.printedAt;
+    if (labelChanged) toast('Étiquette modifiée — repasse en « À imprimer ».');
+  }
   closeForm();
   await saveOp(d => {
     if (id){
@@ -550,6 +726,17 @@ $('btnFormDelete').onclick = async () => {
   await saveOp(d => { d.records = d.records.filter(x => x.id !== id); });
   toast('Article supprimé.');
 };
+$('btnTogglePrint').onclick = async () => {
+  if (!editingId) return;
+  const cur = db.records.find(x => x.id === editingId);
+  if (!cur) return;
+  const val = cur.printedAt ? null : new Date().toISOString();
+  const id = editingId;
+  await saveOp(d => { const x = d.records.find(y => y.id === id); if (x) x.printedAt = val; });
+  const r2 = db.records.find(x => x.id === id);
+  updatePrintStatusUi(r2);
+  toast(val ? 'Étiquette marquée imprimée.' : 'Étiquette repassée en « À imprimer ».');
+};
 $('btnFormCancel').onclick = closeForm;
 $('btnNew').onclick = () => openForm(null, {});
 
@@ -567,14 +754,14 @@ async function aiLookup(query){
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: ctrl.signal,
-      headers: {
+      headers: cfg.anthropicKey ? {
         'Content-Type': 'application/json',
         'x-api-key': cfg.anthropicKey,
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      } : { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: cfg.anthropicKey ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
         max_tokens: 600,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: prompt }],
@@ -591,17 +778,18 @@ async function aiLookup(query){
   finally { clearTimeout(timer); }
 }
 async function aiPrefill(query){
-  if (!cfg || !cfg.anthropicKey) return;       // pas de clé configurée : encodage manuel
+  if (!cfg.anthropicKey && !DEMO) return;      // pas de clé configurée : encodage manuel
   const gen = ++aiGen;
   $('formSub').textContent = 'Recherche IA du produit en cours…';
   const r = await aiLookup(query);
   if (gen !== aiGen || $('formModal').classList.contains('hidden')) return;  // fiche fermée ou nouveau scan entre-temps
   if (!r){ $('formSub').textContent = 'Recherche IA sans résultat — complétez manuellement.'; return; }
-  if (!$('fNom').value && r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim();
-  if (!$('fRef').value && r.reference) $('fRef').value = r.reference;
-  if (!$('fDesc').value && r.description) $('fDesc').value = r.description;
+  if (!$('fNom').value && r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim().slice(0, 30);
+  if (!$('fRef').value && r.reference) $('fRef').value = String(r.reference).slice(0, 15);
+  if (!$('fDesc').value && r.description) $('fDesc').value = String(r.description).slice(0, 60);
   if (!$('fQty').value && r.qte_boite) $('fQty').value = String(r.qte_boite);
   $('formSub').textContent = 'Pré-complété par IA — vérifiez avant d\u2019enregistrer.';
+  renderLabel();
 }
 
 // ---------- Scan ----------
@@ -609,6 +797,8 @@ function handleScan(codeRaw){
   const code = codeRaw.trim();
   if (!code) return;
   $('scanInput').value = '';
+  hideSugg();
+  render();
   const digits = code.replace(/\D/g, '');
 
   // 1) fiche existante ?
@@ -618,25 +808,43 @@ function handleScan(codeRaw){
   // 2) nouveau : préremplir selon le format
   if (digits.length === 13 && isValidGtin(digits)){
     openForm(null, { gtin13: digits, gtin14: derive14(digits) });
-    toast('Nouveau produit — GTIN boîte proposé automatiquement, vérifiez-le.');
+    toast('Nouveau produit — code boîte proposé automatiquement, vérifiez-le.');
     aiPrefill('GTIN/EAN-13 ' + digits);
   } else if (digits.length === 14 && isValidGtin(digits)){
     openForm(null, { gtin14: digits, gtin13: derive13(digits) });
-    toast('Code conditionnement scanné — GTIN unitaire proposé, vérifiez-le.');
+    toast('Code boîte scanné — code unité proposé, vérifiez-le.');
     aiPrefill('GTIN-14 conditionnement ' + digits);
   } else {
     // référence fabricant ou code non GS1
-    $('searchInput').value = code; render();
     openForm(null, { ref: code });
     aiPrefill('r\u00e9f\u00e9rence fabricant "' + code + '"');
   }
 }
 $('btnScanGo').onclick = () => handleScan($('scanInput').value);
 $('scanInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleScan($('scanInput').value); });
-$('searchInput').addEventListener('input', render);
+// ---------- Suggestions prédictives (nom, description, référence, début de code-barres…) ----------
+function hideSugg(){ $('sugg').classList.add('hidden'); }
+$('scanInput').addEventListener('input', () => {
+  render();
+  const q = $('scanInput').value.trim().toLowerCase();
+  if (q.length < 2){ hideSugg(); return; }
+  const hits = db.records.filter(r =>
+    [r.nom, r.ref, r.description, r.gtin13, r.gtin14]
+      .some(v => (v || '').toLowerCase().includes(q))).slice(0, 6);
+  if (!hits.length){ hideSugg(); return; }
+  $('sugg').innerHTML = hits.map(r =>
+    '<div class="sg" data-id="' + r.id + '"><b>' + esc(r.nom) + '</b><span>' + esc(r.ref || '') + '</span>' +
+    '<small>' + esc(r.description || '') + '</small></div>').join('');
+  $('sugg').classList.remove('hidden');
+  $('sugg').querySelectorAll('.sg').forEach(e => e.onclick = () => { hideSugg(); $('scanInput').value = ''; render(); openForm(e.dataset.id); });
+});
+$('scanInput').addEventListener('keydown', e => { if (e.key === 'Escape') hideSugg(); });
+document.addEventListener('click', e => { if (!e.target.closest('#scanBar')) hideSugg(); });
 
 // ---------- Caméra ----------
-$('btnCam').onclick = async () => {
+let camTarget = null;                            // null = barre de scan ; sinon id du champ à remplir
+async function openCam(target){
+  camTarget = target || null;
   $('camModal').classList.remove('hidden');
   camScanner = new Html5Qrcode('reader', {
     formatsToSupport: [
@@ -649,48 +857,124 @@ $('btnCam').onclick = async () => {
     await camScanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 260, height: 140 } },
-      txt => { closeCam(); handleScan(txt); },
+      txt => { closeCam(); camDone(txt); },
       () => {}
     );
   } catch (e) { closeCam(); toast('Caméra inaccessible : ' + e, true); }
-};
+}
+$('btnCam').onclick = () => openCam(null);
+document.querySelectorAll('.fieldcam').forEach(b => b.onclick = () => openCam(b.dataset.tgt));
+function camDone(txt){
+  if (camTarget){
+    const d = String(txt).replace(/\D/g, '');
+    $(camTarget).value = d; checkGtinFields(); renderLabel();
+    toast(isValidGtin(d) ? 'Code scanné.' : 'Code scanné mais invalide — vérifiez.', !isValidGtin(d));
+    camTarget = null;
+  } else handleScan(txt);
+}
 function closeCam(){
   $('camModal').classList.add('hidden');
   if (camScanner){ camScanner.stop().catch(()=>{}); camScanner = null; }
 }
 $('btnCamClose').onclick = closeCam;
 
+// ---------- Aperçu de l'étiquette ----------
+function renderLabel(){
+  const el = $('lbl');
+  if (!el) return;
+  const ruban = $('fRuban').value;
+  el.style.height = (ruban === '36' ? 140 : 94) + 'px';   // ~3,9 px par mm
+  const barH = ruban === '36' ? 52 : 32;
+  const nom = $('fNom').value.trim() || 'Nom produit';
+  const ref = $('fRef').value.trim();
+  const desc = $('fDesc').value.trim();
+  const g13 = $('fG13').value.trim(), g14 = $('fG14').value.trim();
+  const qty = $('fQty').value.trim();
+  const g13ok = g13.length === 13 && isValidGtin(g13);
+  const g14ok = g14.length > 0 && isValidGtin(g14);
+  el.innerHTML =
+    '<div class="l1" style="font-size:' + (ruban === '36' ? 25 : 19) + 'px">' + esc(nom) + '</div>' +
+    (desc ? '<div class="l2">' + esc(desc) + '</div>' : '') +
+    (ref ? '<div class="l3">' + esc(ref) + '</div>' : '') +
+    '<div class="bars">' +
+      (g13ok ? '<div class="bc"><div class="bcap">UNITÉ</div><svg id="lblB1"></svg></div>' : '') +
+      (g14ok ? '<div class="bc"><div class="bcap">BOITE x' + (qty ? esc(qty) : '') + '</div><svg id="lblB2"></svg></div>' : '') + '</div>';
+  try { if (g13ok && window.JsBarcode) JsBarcode('#lblB1', g13, { format: 'EAN13', height: barH, width: 1.1, fontSize: 9, margin: 0 }); } catch (e) {}
+  try { if (g14ok && window.JsBarcode) JsBarcode('#lblB2', g14, { format: 'CODE128', height: barH, width: 1.1, fontSize: 9, margin: 0 }); } catch (e) {}
+}
+['fNom','fRef','fDesc','fG13','fG14','fQty'].forEach(id => $(id).addEventListener('input', renderLabel));
+$('fRuban').addEventListener('change', renderLabel);
+
 // ---------- Export P-touch (xlsx, 1 feuille par largeur de ruban) ----------
 function buildWorkbook(){
   const wb = XLSX.utils.book_new();
   for (const w of ['24', '36']){
-    const rows = db.records.filter(r => r.ruban === w)
-      .sort((a, b) => (a.emplacement || '').localeCompare(b.emplacement || ''))
+    const rows = db.records
+      .filter(r => filterMode === 'all' || (filterMode === 'todo' ? !r.printedAt : !!r.printedAt))
+      .filter(r => !(selectMode && selected.size) || selected.has(r.id))
+      .filter(r => r.ruban === w)
+      .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
       .map(r => ({
         Nom: r.nom, Reference: r.ref || '', Description: r.description || '',
         GTIN_Unitaire: r.gtin13 || '', GTIN_Boite: r.gtin14 || '',
-        Qte_Boite: r.qtyBox || '', Emplacement: r.emplacement || '',
+        Qte_Boite: r.qtyBox || '', Stock_Min: r.stockMin || '',
+        Lib_Unite: r.gtin13 ? 'UNITÉ' : '',
+        Lib_Boite: r.gtin14 ? ('BOÎTE' + (r.qtyBox ? ' ×' + r.qtyBox : '')) : '',
       }));
-    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{Nom:'',Reference:'',Description:'',GTIN_Unitaire:'',GTIN_Boite:'',Qte_Boite:'',Emplacement:''}]);
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{Nom:'',Reference:'',Description:'',GTIN_Unitaire:'',GTIN_Boite:'',Qte_Boite:'',Stock_Min:'',Lib_Unite:'',Lib_Boite:''}]);
     XLSX.utils.book_append_sheet(wb, ws, 'Ruban_' + w + 'mm');
   }
   return wb;
 }
+function exportScopeLabel(){
+  if (selectMode && selected.size){
+    return selected.size + ' étiquette(s) sélectionnée(s)';
+  }
+  const n = db.records.filter(r => filterMode === 'all' || (filterMode === 'todo' ? !r.printedAt : !!r.printedAt)).length;
+  return n + ' étiquette(s), filtre « ' + (filterMode === 'all' ? 'Tous' : filterMode === 'todo' ? 'À imprimer' : 'Imprimées') + ' »';
+}
+// ---------- CSV pour P-touch (encodage Windows-1252 : accents corrects dans P-touch Editor) ----------
+function toCp1252(str){
+  const extra = {'\u20AC':128,'\u201A':130,'\u0192':131,'\u201E':132,'\u2026':133,'\u2020':134,'\u2021':135,'\u02C6':136,'\u2030':137,'\u0160':138,'\u2039':139,'\u0152':140,'\u017D':142,'\u2018':145,'\u2019':146,'\u201C':147,'\u201D':148,'\u2022':149,'\u2013':150,'\u2014':151,'\u02DC':152,'\u2122':153,'\u0161':154,'\u203A':155,'\u0153':156,'\u017E':158,'\u0178':159};
+  const out = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++){
+    const c = str.charCodeAt(i);
+    out[i] = c <= 0xFF ? c : (extra[str[i]] || 63);   // 63 = '?'
+  }
+  return out;
+}
+function buildCsw(w){
+  const cell = v => String(v ?? '').replace(/[,;]/g, ' ').replace(/\r?\n/g, ' ');   // virgule = séparateur natif P-touch (pas de copie convertie)
+  const rows = db.records
+    .filter(r => filterMode === 'all' || (filterMode === 'todo' ? !r.printedAt : !!r.printedAt))
+    .filter(r => !(selectMode && selected.size) || selected.has(r.id))
+    .filter(r => r.ruban === w)
+    .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
+    .map(r => [r.nom, r.ref, r.description, r.gtin13, r.gtin14, r.qtyBox, r.stockMin,
+               r.gtin13 ? 'UNITÉ' : '',
+               r.gtin14 ? ('BOÎTE x' + (r.qtyBox || '')) : ''].map(cell).join(','));
+  return 'Nom,Reference,Description,GTIN_Unitaire,GTIN_Boite,Qte_Boite,Stock_Min,Lib_Unite,Lib_Boite\r\n' + rows.join('\r\n') + '\r\n';
+}
+
 $('btnExport').onclick = () => {
   XLSX.writeFile(buildWorkbook(), 'Etiquettes_Ptouch.xlsx');
-  toast('Fichier téléchargé — à lier dans P-touch Editor (database connect).');
+  toast('Export : ' + exportScopeLabel() + '. Après impression, pensez à « Marquer comme imprimées ».');
 };
 $('btnPublish').onclick = async () => {
+  if (DEMO) return toast('Indisponible en mode démo.');
   sync('busy', 'publication…');
-  const buf = XLSX.write(buildWorkbook(), { type: 'array', bookType: 'xlsx' });
-  const r = await graph(fileUrl('Etiquettes_Ptouch.xlsx') + ':/content', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-    body: buf,
-  });
+  let ok = true;
+  for (const w of ['24', '36']){
+    const r = await graph(fileUrl('Etiquettes_' + w + 'mm.csv') + ':/content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/csv' },
+      body: toCp1252(buildCsv(w)),
+    });
+    ok = ok && r.ok;
+  }
   sync('ok', 'à jour');
-  r.ok ? toast('Etiquettes_Ptouch.xlsx publié dans le dossier partagé.')
-       : toast('Publication impossible (' + r.status + ')', true);
+  ok ? toast('Publié sur OneDrive (Etiquettes_24mm.csv + 36mm.csv) : ' + exportScopeLabel() + '. Après impression, « Marquer comme imprimées ».')
+     : toast('Publication partielle ou impossible — réessayez.', true);
 };
 
 // ---------- Configuration ----------
@@ -718,6 +1002,18 @@ setInterval(() => { if (drive && document.visibilityState === 'visible' && $('fo
 
 // ---------- Démarrage ----------
 (async function boot(){
+  if (DEMO){
+    document.querySelector('header h1 small').textContent = 'MODE DÉMO — base locale';
+    db = { records: DEMO_RECORDS.slice() };
+    try {
+      const saved = !window.__FORCE_DEMO && localStorage.getItem('stockera_demo_db');
+      if (saved) db = JSON.parse(saved);
+    } catch (e) {}
+    show('viewMain'); render();
+    sync('ok', 'MODE DÉMO — base locale, non partagée');
+    $('scanInput').focus();
+    return;
+  }
   try {
     await initAuth();
     if (!account){ show('viewLogin'); return; }
