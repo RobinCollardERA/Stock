@@ -33,6 +33,7 @@ body{
   background:var(--bg);color:var(--txt);
   font-family:'IBM Plex Sans',system-ui,sans-serif;
   font-size:15px;line-height:1.45;
+  overflow-x:clip;                             /* aucun débordement horizontal possible */
 }
 button{font:inherit;cursor:pointer;border:none;border-radius:var(--radius)}
 input,select,textarea{
@@ -165,7 +166,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 }
 #scanLine.vert{left:50%;right:auto;top:8%;bottom:8%;width:2px;height:auto;margin:0 0 0 -1px}
 #camTools{display:flex;gap:8px;margin-top:10px}
-#camTools select{flex:1;padding:8px 10px;font-size:13.5px}
+#btnCamLens{flex:1;text-align:left;background:var(--surface2);border:1px solid var(--line);color:var(--txt);padding:8px 12px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #btnCamRot{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);color:var(--txt);padding:8px 12px;font-size:13.5px}
 #btnCamRot.on{border-color:var(--accent);color:var(--accent)}
 #camHint{font-size:12.5px;color:var(--muted,#9aa4b2);margin:10px 2px 0;line-height:1.45}
@@ -229,7 +230,10 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 @media (max-width:560px){
   .row{flex-direction:column;gap:0;align-items:stretch}
-  header h1 small{display:none}
+  header{gap:8px;padding:10px 10px}
+  header h1{font-size:19px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header h1 small .subt{display:none}          /* la version (vX.Y.Z) reste visible */
+  #syncText{display:none}                      /* la pastille de couleur suffit sur mobile */
   .item .actions{flex-direction:row}
 }
 @media (prefers-reduced-motion:no-preference){
@@ -242,11 +246,11 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.6.0</small></h1>
+  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.1</span></small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
-  <button id="btnBug" class="btn ghost" style="padding:6px 10px;font-size:12px" title="Signaler un bug ou proposer une amélioration">🐞</button>
+  <button id="btnBug" class="btn ghost" style="padding:6px 10px;font-size:12px;white-space:nowrap" title="Signaler un bug ou proposer une amélioration">📣 Signaler</button>
   <button id="btnCfg" class="btn ghost" style="padding:6px 10px;font-size:12px">⚙</button>
 </header>
 
@@ -409,13 +413,13 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <h2>Scanner avec la caméra</h2>
     <div id="readerWrap"><div id="reader"></div><div id="scanLine"></div></div>
     <div id="camTools">
-      <select id="camDevice"><option value="">Objectif : automatique</option></select>
+      <button type="button" id="btnCamLens" title="Changer d'objectif (caméras arrière uniquement)">🔄 Objectif : automatique</button>
       <button type="button" id="btnCamRot" title="Basculer le scan à 90° (codes-barres verticaux)">⟳ 90°</button>
     </div>
     <div id="camMsg" class="hidden"></div>
     <div id="camHint"><b>Alignez la ligne rouge sur le code-barres à lire</b> — seul le code sur la ligne est pris en compte.
     Le bon code : <b>uniquement des chiffres</b>, 13 (ou 8) chiffres imprimés sous les barres, souvent près de la mention « EAN ».
-    Évitez S/N, MAC, IP, REF. Netteté variable ? Choisissez un autre objectif ci-dessus.</div>
+    Évitez S/N, MAC, IP, REF. Netteté variable ? Changez d'objectif avec le bouton 🔄.</div>
     <div class="foot"><button class="btn ghost" id="btnCamClose">Fermer</button></div>
   </div>
 </div>
@@ -424,7 +428,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.6.0
+   Stock E.R.A. — v1.6.1
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -815,32 +819,40 @@ async function aiLookup(query){
     'Si le produit n\u2019est pas identifiable avec certitude, réponds {"found":false}.';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 25000);
+  const body = JSON.stringify({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 600,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const call = async (url, headers) => {
+    const r = await fetch(url, { method: 'POST', signal: ctrl.signal, headers, body });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  };
   try {
-    // Clé locale (⚙) -> appel direct ; sinon -> proxy E.R.A. (aucune clé sur le poste).
-    const direct = !!cfg.anthropicKey || DEMO;
-    const r = await fetch(direct ? 'https://api.anthropic.com/v1/messages' : AI_PROXY, {
-      method: 'POST', signal: ctrl.signal,
-      headers: cfg.anthropicKey ? {
-        'Content-Type': 'application/json',
-        'x-api-key': cfg.anthropicKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      } : { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: cfg.anthropicKey ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
-        max_tokens: 600,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
+    let data = null;
+    if (cfg.anthropicKey){                     // clé locale (⚙) -> appel direct d'abord
+      try {
+        data = await call('https://api.anthropic.com/v1/messages', {
+          'Content-Type': 'application/json',
+          'x-api-key': cfg.anthropicKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        });
+      } catch (e) { data = null; }             // clé invalide/expirée -> on retente via le proxy
+    }
+    if (!data) data = await call(AI_PROXY, { 'Content-Type': 'application/json' });
     const txt = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-    const m = txt.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    const j = JSON.parse(m[0]);
-    return j && j.found ? j : null;
-  } catch (e) { return null; }                 // indisponible / timeout / clé invalide -> mode manuel
+    // Le modèle peut citer le gabarit JSON dans son texte : on prend le DERNIER objet JSON valide.
+    let j = null;
+    const cands = txt.match(/\{[^{}]*\}/g) || [];
+    for (let i = cands.length - 1; i >= 0 && !j; i--){ try { j = JSON.parse(cands[i]); } catch (e) {} }
+    return { j: j && j.found ? j : null };
+  } catch (e) {
+    const err = e && e.name === 'AbortError' ? 'délai dépassé' : String(e && e.message || e);
+    return { j: null, err };                   // indisponible -> mode manuel, cause affichée
+  }
   finally { clearTimeout(timer); }
 }
 let aiSuggData = null;
@@ -849,9 +861,15 @@ async function aiSuggest(query){
   const gen = ++aiGen;
   aiSuggHide();
   $('formSub').textContent = 'Recherche IA du produit en cours…';
-  const r = await aiLookup(query);
+  const res = await aiLookup(query);
   if (gen !== aiGen || $('formModal').classList.contains('hidden')) return;  // fiche fermée ou nouveau scan entre-temps
-  if (!r){ $('formSub').textContent = 'Recherche IA sans résultat — complétez manuellement.'; return; }
+  if (!res.j){
+    $('formSub').textContent = res.err
+      ? 'Recherche IA indisponible (' + res.err + ') — complétez manuellement.'
+      : 'Recherche IA sans résultat — complétez manuellement.';
+    return;
+  }
+  const r = res.j;
   aiSuggData = r;
   $('formSub').textContent = 'Suggestion IA disponible — appliquez-la ou ignorez-la.';
   $('aiSuggTxt').innerHTML = '<b>Suggestion IA :</b> ' + esc(((r.marque || '') + ' ' + (r.nom || '')).trim()) +
@@ -929,12 +947,54 @@ document.addEventListener('click', e => { if (!e.target.closest('#scanBar')) hid
 
 // ---------- Caméra ----------
 let camTarget = null;                            // null = barre de scan ; sinon id du champ à remplir
+let camLenses = [{ id: '', name: 'Automatique' }];
+let camStartGen = 0;                             // invalide les démarrages/watchdogs obsolètes
+let camRetried = false;                          // une seule relance auto anti-écran-noir par ouverture
 async function openCam(target){
   camTarget = target || null;
+  camRetried = false;
   $('camModal').classList.remove('hidden');
   await startScanner();
-  populateCams();                              // labels disponibles après l'autorisation caméra
+  buildLenses();                               // labels disponibles après l'autorisation caméra
 }
+// Nom lisible d'un objectif à partir du label système (souvent verbeux)
+function lensName(label, n){
+  const l = (label || '').toLowerCase();
+  if (/ultra/.test(l)) return 'Ultra grand-angle';
+  if (/tele|téléo|telephoto/.test(l)) return 'Téléobjectif';
+  if (/triple|dual|double/.test(l)) return 'Multi-objectifs (auto)';
+  if (/back|arri|rear|environment|wide/.test(l)) return 'Standard';
+  return 'Objectif ' + n;
+}
+async function buildLenses(){
+  try {
+    const cams = await Html5Qrcode.getCameras();
+    // Caméras arrière uniquement : la frontale ne sert pas à scanner des étiquettes
+    let rear = cams.filter(c => !/front|avant|face|selfie|user/i.test(c.label || ''));
+    if (!rear.length) rear = cams;             // webcam de bureau sans label explicite
+    camLenses = [{ id: '', name: 'Automatique' }]
+      .concat(rear.map((c, i) => ({ id: c.id, name: lensName(c.label, i + 1) })));
+    const seen = {};                           // doublons de nom -> numérotation
+    camLenses.forEach(l => { seen[l.name] = (seen[l.name] || 0) + 1; if (seen[l.name] > 1) l.name += ' ' + seen[l.name]; });
+    if (!camLenses.some(l => l.id === (localStorage.getItem('camDeviceId') || '')))
+      localStorage.removeItem('camDeviceId');  // objectif mémorisé disparu -> automatique
+  } catch (e) { camLenses = [{ id: '', name: 'Automatique' }]; }
+  updateLensBtn();
+}
+function updateLensBtn(){
+  const cur = localStorage.getItem('camDeviceId') || '';
+  const l = camLenses.find(x => x.id === cur) || camLenses[0];
+  $('btnCamLens').textContent = '🔄 Objectif : ' + l.name;
+}
+$('btnCamLens').onclick = () => {
+  if (camLenses.length < 2) return;
+  const cur = localStorage.getItem('camDeviceId') || '';
+  const i = camLenses.findIndex(x => x.id === cur);
+  const next = camLenses[(i + 1) % camLenses.length];
+  if (next.id) localStorage.setItem('camDeviceId', next.id); else localStorage.removeItem('camDeviceId');
+  updateLensBtn();
+  startScanner();
+};
 // Bande de lecture étroite : seul le code aligné sur la ligne rouge est décodé.
 function camConfig(){
   const vert = localStorage.getItem('camVertical') === '1';
@@ -942,8 +1002,26 @@ function camConfig(){
   $('btnCamRot').classList.toggle('on', vert);
   return { fps: 10, qrbox: vert ? { width: 70, height: 280 } : { width: 280, height: 70 } };
 }
+// iOS n'autorise qu'un flux caméra actif : tout flux résiduel non libéré rend le suivant NOIR.
+function releaseReaderTracks(){
+  const v = document.querySelector('#reader video');
+  if (v && v.srcObject){ try { v.srcObject.getTracks().forEach(t => t.stop()); } catch (e) {} v.srcObject = null; }
+}
+// Si aucune image 1 s après le démarrage (écran noir iOS), on relance une fois automatiquement.
+function camWatchdog(gen){
+  setTimeout(() => {
+    if (gen !== camStartGen || $('camModal').classList.contains('hidden')) return;
+    const v = document.querySelector('#reader video');
+    const black = !v || !v.videoWidth || v.readyState < 2;
+    if (black && !camRetried){ camRetried = true; startScanner(); }
+    else if (!black) camRetried = false;
+  }, 1000);
+}
 async function startScanner(){
-  if (camScanner){ try { await camScanner.stop(); } catch (e) {} camScanner = null; }
+  const gen = ++camStartGen;
+  if (camScanner){ const s = camScanner; camScanner = null; try { await s.stop(); } catch (e) {} }
+  releaseReaderTracks();
+  if (gen !== camStartGen) return;             // un autre démarrage a pris la main entre-temps
   $('reader').innerHTML = '';
   camScanner = new Html5Qrcode('reader', {
     formatsToSupport: [
@@ -964,25 +1042,12 @@ async function startScanner(){
     );
     // Mise au point continue quand le navigateur la propose
     try { await camScanner.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    camWatchdog(gen);                          // relance auto si l'image reste noire
   } catch (e) {
-    if (devId){ localStorage.removeItem('camDeviceId'); return startScanner(); }   // objectif indisponible -> auto
+    if (devId){ localStorage.removeItem('camDeviceId'); updateLensBtn(); return startScanner(); }   // objectif indisponible -> auto
     closeCam(); toast('Caméra inaccessible : ' + e, true);
   }
 }
-async function populateCams(){
-  try {
-    const cams = await Html5Qrcode.getCameras();
-    const cur = localStorage.getItem('camDeviceId') || '';
-    $('camDevice').innerHTML = '<option value="">Objectif : automatique</option>' +
-      cams.map(c => '<option value="' + esc(c.id) + '"' + (c.id === cur ? ' selected' : '') + '>' +
-        esc(c.label || 'Caméra') + '</option>').join('');
-  } catch (e) {}
-}
-$('camDevice').onchange = () => {
-  const v = $('camDevice').value;
-  if (v) localStorage.setItem('camDeviceId', v); else localStorage.removeItem('camDeviceId');
-  startScanner();
-};
 $('btnCamRot').onclick = () => {
   localStorage.setItem('camVertical', localStorage.getItem('camVertical') === '1' ? '0' : '1');
   startScanner();
@@ -1048,7 +1113,9 @@ function camDone(txt){
 function closeCam(){
   $('camModal').classList.add('hidden');
   camMsgHide(); camLastCode = '';
-  if (camScanner){ camScanner.stop().catch(()=>{}); camScanner = null; }
+  camStartGen++;                               // annule tout démarrage/watchdog en cours
+  if (camScanner){ const s = camScanner; camScanner = null; s.stop().catch(()=>{}).then(releaseReaderTracks); }
+  else releaseReaderTracks();
 }
 $('btnCamClose').onclick = closeCam;
 
@@ -1157,9 +1224,9 @@ $('btnBugClose').onclick = () => $('bugModal').classList.add('hidden');
 $('btnBugSend').onclick = () => {
   const desc = $('bugDesc').value.trim();
   if (!desc) return toast('Décrivez le bug ou la suggestion.', true);
-  const sujet = '[Stock ERA v1.6.0] ' + $('bugType').value;
+  const sujet = '[Stock ERA v1.6.1] ' + $('bugType').value;
   const corps = $('bugType').value + ' :\n' + desc +
-    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.0' +
+    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.1' +
     '\nDate : ' + new Date().toLocaleString('fr-BE') +
     '\nAppareil : ' + navigator.userAgent +
     '\nMode : ' + (DEMO ? 'démo' : 'normal');
