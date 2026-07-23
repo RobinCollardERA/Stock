@@ -196,11 +196,14 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   font-size:13px;background:rgba(255,127,0,.12);border:1px solid var(--accent);color:#FF9E40}
 #aiFail span{flex:1}
 #aiFail .btn{flex:0 0 auto;padding:6px 12px;font-size:12.5px}
-#btnAiPhoto{margin:6px 0 2px;padding:8px 12px;font-size:13px}
 #menuPanel{position:fixed;top:56px;right:10px;z-index:30;display:flex;flex-direction:column;gap:8px;
   background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;
   box-shadow:0 8px 24px rgba(0,0,0,.45);animation:camMsgIn .15s ease-out}
 #menuPanel .btn{width:100%;text-align:left}
+.optCat{font-size:13px;color:var(--blue-l);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+label.opt{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--txt);text-transform:none;
+  letter-spacing:0;margin:8px 0;cursor:pointer}
+label.opt input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:0 0 auto}
 .cnt{float:right;font-size:10.5px;font-weight:400;color:var(--txt-dim)}
 .cnt.low{color:var(--accent)}
 
@@ -264,7 +267,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.5</span></small></h1>
+  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.6</span></small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -277,6 +280,25 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
   <!-- ===== Vue configuration ===== -->
   <section id="viewCfg" class="hidden">
+    <div class="card">
+      <button class="btn ghost" id="btnCfgBack" style="margin-bottom:10px">← Retour</button>
+      <h2>Options (propres à cet appareil)</h2>
+
+      <h3 class="optCat">Scan</h3>
+      <label class="opt"><input type="checkbox" id="optNewScan"> « ＋ Nouvel article » ouvre directement le scanner du code unité</label>
+      <label class="opt"><input type="checkbox" id="optVibrate"> Vibration à la détection d'un code (mobile)</label>
+
+      <h3 class="optCat">Assistant IA</h3>
+      <label class="opt"><input type="checkbox" id="optAiAuto"> Recherche IA automatique au scan d'un code inconnu</label>
+      <label class="opt"><input type="checkbox" id="optAutoApply"> Appliquer les suggestions IA sans validation (les champs se remplissent seuls — à vérifier avant d'enregistrer)</label>
+
+      <h3 class="optCat">Étiquettes</h3>
+      <label class="opt">Ruban par défaut des nouvelles fiches
+        <select id="optRuban" style="width:auto;margin-left:8px"><option value="24">24 mm</option><option value="36">36 mm</option></select>
+      </label>
+      <p class="hint">Ces options sont enregistrées immédiatement, uniquement sur cet appareil.</p>
+    </div>
+
     <div class="card">
       <h2>Paramètres avancés (préconfigurés — ne modifier que si nécessaire)</h2>
       <label>ID de l'annuaire (locataire) — Entra ID</label>
@@ -329,6 +351,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
       <button class="chip on" data-f="all">Tous</button>
       <button class="chip" data-f="todo">À imprimer</button>
       <button class="chip" data-f="done">Imprimées</button>
+      <button class="chip" data-f="trash">🗑 Corbeille</button>
       <button class="chip" id="btnSort" title="Basculer le tri de la liste">Tri : A→Z</button>
       <button class="chip hidden" id="btnSelMode">☑ Sélectionner</button>
       <button class="chip hidden" id="btnSelAll">Tout cocher</button>
@@ -349,7 +372,6 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <p class="hint" id="formSub"></p>
     <div id="aiBusy" class="hidden"><span class="spin"></span>Recherche IA du produit en cours…</div>
     <div id="aiFail" class="hidden"><span id="aiFailTxt"></span><button type="button" class="btn ghost" id="btnAiRetry">Réessayer</button></div>
-    <button type="button" class="btn ghost" id="btnAiPhoto" title="Pour les produits sans code EAN : photographiez l'étiquette ou l'équipement lui-même, l'IA identifie le produit et cherche son code EAN en ligne">📸 Identifier par photo (étiquette ou produit)</button>
     <input type="file" id="aiPhotoInput" accept="image/*" capture="environment" multiple class="hidden">
     <div id="aiSugg" class="hidden">
       <div id="aiSuggTxt"></div>
@@ -457,7 +479,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.6.5
+   Stock E.R.A. — v1.6.6
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -594,6 +616,7 @@ async function loadDb(){
     const body = await graph(fileUrl(DB_FILE) + ':/content');
     db = await body.json();
     if (!db.records) db = { records: [] };
+    if (!db.trash) db.trash = [];
   } else {
     throw new Error('Lecture de la base impossible (' + meta.status + ')');
   }
@@ -611,6 +634,20 @@ async function putDb(withMatch = true){
   dbEtag = (await r.json()).eTag;
   return true;
 }
+// Sauvegarde quotidienne : avant la PREMIÈRE écriture du jour, l'état actuel de la base est copié
+// dans stock-db-backup-jour{1..7}.json (rotation hebdomadaire, 7 fichiers max dans le même dossier
+// OneDrive). S'ajoute aux protections natives OneDrive : historique de versions + corbeille 93 jours.
+async function dailyBackup(){
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem('lastBackup') === today) return;
+    const day = new Date().getDay() || 7;      // 1 (lundi) … 7 (dimanche)
+    const r = await graph(fileUrl('stock-db-backup-jour' + day + '.json') + ':/content', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db),
+    });
+    if (r.ok) localStorage.setItem('lastBackup', today);
+  } catch (e) {}                               // la sauvegarde ne doit jamais bloquer l'enregistrement
+}
 // Applique une opération sur la base avec relecture/réessai en cas de conflit
 async function saveOp(op){
   if (DEMO){
@@ -619,6 +656,7 @@ async function saveOp(op){
     return;
   }
   sync('busy', 'enregistrement…');
+  await dailyBackup();                         // filet de sécurité : copie tournante avant modification
   for (let i = 0; i < 4; i++){
     op(db);
     if (await putDb()) {
@@ -637,6 +675,7 @@ let sortMode = localStorage.getItem('sortMode') || 'az';   // az | recent
 let selected = new Set(); // sélection de fiches (mode sélection)
 let selectMode = false;   // cases à cocher visibles uniquement quand activé (évite les taps accidentels)
 function render(){
+  if (filterMode === 'trash') return renderTrash();
   const q = $('scanInput').value.trim().toLowerCase();
   const recs = db.records
     .filter(r => filterMode === 'all' || (filterMode === 'todo' ? !r.printedAt : !!r.printedAt))
@@ -670,6 +709,7 @@ function render(){
     cb.checked ? selected.add(cb.dataset.sel) : selected.delete(cb.dataset.sel);
     syncSelUi();
   });
+  $('btnSort').classList.remove('hidden');
   $('btnSelMode').classList.remove('hidden');            // sélection disponible partout, y compris « Tous »
   $('btnSelMode').classList.toggle('on', selectMode);
   $('btnSelAll').classList.toggle('hidden', !(selectMode && recs.length));
@@ -680,6 +720,35 @@ function render(){
   $('btnMarkTodo').disabled = !(selectMode && selected.size);
   $('btnBulkDelete').disabled = !(selectMode && selected.size);
   syncSelUi();
+}
+// Corbeille : les fiches supprimées y sont conservées définitivement (aucun vidage possible
+// depuis l'app) et peuvent être restaurées à tout moment.
+function renderTrash(){
+  const tr = (db.trash || []).slice().sort((a, b) => String(b.deletedAt || '').localeCompare(String(a.deletedAt || '')));
+  $('count').textContent = tr.length + ' article(s) dans la corbeille — restaurables, jamais effacés';
+  ['btnSelMode','btnSelAll','btnMarkPrinted','btnMarkTodo','btnBulkDelete','btnSort'].forEach(i => $(i).classList.add('hidden'));
+  const list = $('list');
+  if (!tr.length){ list.innerHTML = '<div class="empty">Corbeille vide.</div>'; return; }
+  list.innerHTML = tr.map(r => `
+    <div class="item">
+      <div class="name">${esc(r.nom)}<span class="ref">${esc(r.ref || '')}</span></div>
+      <div class="desc">${esc(r.description || '')}</div>
+      <div class="codes"><span class="cd">UNITÉ <b>${esc(r.gtin13 || '—')}</b></span><span class="cd">BOÎTE <b>${esc(r.gtin14 || '—')}</b></span></div>
+      <div class="meta"><span class="tag">supprimée ${r.deletedAt ? new Date(r.deletedAt).toLocaleDateString('fr-BE') : ''}</span>
+        <span class="who">${esc(r.deletedBy || '')}</span></div>
+      <div class="actions"><button class="btn ghost" data-restore="${r.id}">↩ Restaurer</button></div>
+    </div>`).join('');
+  list.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => {
+    await saveOp(d => {
+      const i = (d.trash || []).findIndex(x => x.id === b.dataset.restore);
+      if (i < 0) return;
+      const rec = d.trash.splice(i, 1)[0];
+      delete rec.deletedAt; delete rec.deletedBy;
+      if (d.records.some(x => x.id === rec.id)) rec.id = 'r' + Date.now() + Math.random().toString(36).slice(2, 6);
+      d.records.push(rec);
+    });
+    toast('Article restauré.');
+  });
 }
 function syncSelUi(){
   $('btnMarkPrinted').textContent = '✔ Marquer comme imprimées' + (selected.size ? ' (' + selected.size + ')' : '');
@@ -693,11 +762,11 @@ function syncSelUi(){
 $('btnBulkDelete').onclick = async () => {
   const n = selected.size;
   if (!n) return;
-  if (!confirm('Supprimer définitivement ' + n + ' article(s) sélectionné(s) ?\nCette action est irréversible.')) return;
-  const ids = new Set(selected);
+  if (!confirm('Envoyer ' + n + ' article(s) à la corbeille ?\n(restaurables à tout moment via le filtre 🗑 Corbeille)')) return;
+  const ids = Array.from(selected);
   selected.clear();
-  await saveOp(d => { d.records = d.records.filter(r => !ids.has(r.id)); });
-  toast(n + ' article(s) supprimé(s).');
+  await saveOp(d => moveToTrash(d, ids));
+  toast(n + ' article(s) envoyé(s) à la corbeille.');
 };
 $('btnSort').onclick = () => {
   sortMode = sortMode === 'az' ? 'recent' : 'az';
@@ -765,7 +834,7 @@ function openForm(id = null, prefill = {}){
   $('fG14').value = r.gtin14 || '';
   $('fQty').value = r.qtyBox || '';
   $('fStockMin').value = r.stockMin || '';
-  $('fRuban').value = r.ruban || '24';
+  $('fRuban').value = r.ruban || opts.ruban || '24';
   $('btnFormDelete').classList.toggle('hidden', !id);
   updatePrintStatusUi(id ? r : null);
   checkGtinFields();
@@ -856,11 +925,19 @@ $('btnFormSave').onclick = async () => {
   toast('Article enregistré.');
 };
 $('btnFormDelete').onclick = async () => {
-  if (!editingId || !confirm('Supprimer définitivement cette fiche ?')) return;
+  if (!editingId || !confirm('Envoyer cette fiche à la corbeille ?\n(restaurable à tout moment via le filtre 🗑 Corbeille)')) return;
   const id = editingId; closeForm();
-  await saveOp(d => { d.records = d.records.filter(x => x.id !== id); });
-  toast('Article supprimé.');
+  await saveOp(d => moveToTrash(d, [id]));
+  toast('Article envoyé à la corbeille.');
 };
+// Déplace des fiches vers la corbeille (rien n'est jamais effacé définitivement par l'app)
+function moveToTrash(d, ids){
+  d.trash = d.trash || [];
+  const set = new Set(ids), when = new Date().toISOString();
+  const who = (typeof account !== 'undefined' && account) ? (account.name || account.username) : (DEMO ? 'Démo' : '');
+  d.records.filter(r => set.has(r.id)).forEach(r => d.trash.push(Object.assign({}, r, { deletedAt: when, deletedBy: who })));
+  d.records = d.records.filter(r => !set.has(r.id));
+}
 $('btnTogglePrint').onclick = async () => {
   if (!editingId) return;
   const cur = db.records.find(x => x.id === editingId);
@@ -873,7 +950,7 @@ $('btnTogglePrint').onclick = async () => {
   toast(val ? 'Étiquette marquée imprimée.' : 'Étiquette repassée en « À imprimer ».');
 };
 $('btnFormCancel').onclick = closeForm;
-$('btnNew').onclick = () => openForm(null, {});
+$('btnNew').onclick = () => { openForm(null, {}); if (opts.newScan) openCam('fG13'); };
 
 // ---------- Précomplétion IA (via proxy E.R.A. par défaut, ou clé API locale) ----------
 const AI_PROXY = 'https://stock-era-ai.robin-collard.workers.dev';   // Cloudflare Worker : la clé reste côté serveur
@@ -942,7 +1019,13 @@ async function aiLookup(query, images){
     for (let i = cands.length - 1; i >= 0 && !j; i--){ try { j = JSON.parse(cands[i]); } catch (e) {} }
     return { j: j && j.found ? j : null };
   } catch (e) {
-    const err = e && e.name === 'AbortError' ? 'délai dépassé' : String(e && e.message || e);
+    let err = e && e.name === 'AbortError' ? 'délai dépassé (réseau lent ?)' : String(e && e.message || e);
+    const m = err.match(/HTTP (\d+)/);
+    if (m){
+      const lib = { 400: 'requête invalide', 401: 'accès refusé', 403: 'accès refusé', 413: 'photos trop volumineuses',
+        429: 'limite de débit atteinte — patientez ~1 min', 500: 'service en erreur', 529: 'service surchargé' };
+      err = 'HTTP ' + m[1] + (lib[m[1]] ? ' — ' + lib[m[1]] : m[1][0] === '5' ? ' — service momentanément indisponible' : '');
+    }
     return { j: null, err };                   // indisponible -> mode manuel, cause affichée
   }
   finally { clearTimeout(timer); }
@@ -952,6 +1035,7 @@ let aiLastCode = '';                           // dernier code déjà interrogé
 function maybeAiForCode(d){
   // Nouvelle fiche : tout code valide scanné/saisi (même si le nom est déjà rempli) relance la suggestion,
   // sauf si c'est exactement le code déjà interrogé.
+  if (!opts.aiAuto) return;                    // désactivable dans ⚙ (économie de coûts IA)
   if (editingId || !isValidGtin(d) || (d.length !== 13 && d.length !== 14) || d === aiLastCode) return;
   aiLastCode = d;
   aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
@@ -979,6 +1063,11 @@ async function aiSuggest(query, images){
   }
   const r = res.j;
   aiSuggData = r;
+  if (opts.autoApply){                         // option ⚙ : pas de validation, application immédiate
+    applyAiSugg();
+    $('formSub').textContent = 'Complété automatiquement par IA — vérifiez avant d\u2019enregistrer.';
+    return;
+  }
   $('formSub').textContent = 'Suggestion IA disponible — appliquez-la ou ignorez-la.';
   $('aiSuggTxt').innerHTML = '<b>Suggestion IA :</b> ' + esc((r.nom || '').trim()) +
     (r.reference ? ' · ' + esc(String(r.reference)) : '') +
@@ -990,7 +1079,7 @@ async function aiSuggest(query, images){
   $('aiSugg').classList.remove('hidden');
 }
 function aiSuggHide(){ $('aiSugg').classList.add('hidden'); aiSuggData = null; }
-$('btnAiApply').onclick = () => {
+function applyAiSugg(){
   const r = aiSuggData; if (!r) return;
   if (r.nom) $('fNom').value = String(r.nom).trim().slice(0, 30);   // sans la marque (elle reste affichée dans la suggestion)
   if (r.reference) $('fRef').value = String(r.reference).slice(0, 40);
@@ -1004,7 +1093,8 @@ $('btnAiApply').onclick = () => {
   checkGtinFields();
   $('formSub').textContent = 'Champs complétés par IA — vérifiez avant d\u2019enregistrer.';
   aiSuggHide(); renderLabel();
-};
+}
+$('btnAiApply').onclick = applyAiSugg;
 $('btnAiDismiss').onclick = () => { aiSuggHide(); $('formSub').textContent = 'Suggestion ignorée — complétez manuellement.'; };
 $('btnAiRetry').onclick = () => { if (aiLastQuery) aiSuggest(aiLastQuery, aiLastImages); };
 // ---------- Identification par photo (produits sans EAN sur la boîte, ex. Siemens TX-I/O) ----------
@@ -1025,7 +1115,6 @@ function downscaleImage(file){
     im.src = url;
   });
 }
-$('btnAiPhoto').onclick = () => $('aiPhotoInput').click();
 $('btnCamPhoto').onclick = () => {
   // Depuis le scanner : pas de code exploitable -> on bascule direct sur l'identification par photo
   const forField = camTarget;                  // scan lancé depuis un champ de la fiche ?
@@ -1230,6 +1319,7 @@ function camDiagnose(raw, fmtName){
   return null;                                 // code valide
 }
 function camDetect(txt, fmtName){
+  if (opts.vibrate && navigator.vibrate) try { navigator.vibrate(80); } catch (e) {}
   const diag = camDiagnose(txt, fmtName);
   if (!diag){
     camLastCode = ''; camMsgHide();
@@ -1385,9 +1475,9 @@ $('btnBugClose').onclick = () => $('bugModal').classList.add('hidden');
 $('btnBugSend').onclick = () => {
   const desc = $('bugDesc').value.trim();
   if (!desc) return toast('Décrivez le bug ou la suggestion.', true);
-  const sujet = '[Stock ERA v1.6.5] ' + $('bugType').value;
+  const sujet = '[Stock ERA v1.6.6] ' + $('bugType').value;
   const corps = $('bugType').value + ' :\n' + desc +
-    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.5' +
+    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.6' +
     '\nDate : ' + new Date().toLocaleString('fr-BE') +
     '\nAppareil : ' + navigator.userAgent +
     '\nMode : ' + (DEMO ? 'démo' : 'normal');
@@ -1395,6 +1485,23 @@ $('btnBugSend').onclick = () => {
   $('bugModal').classList.add('hidden');
   toast('E-mail préparé — envoyez-le depuis votre messagerie.');
 };
+
+// ---------- Options utilisateur (localStorage, par appareil) ----------
+const OPT_DEFAULTS = { newScan: false, vibrate: true, aiAuto: true, autoApply: false, ruban: '24' };
+let opts = Object.assign({}, OPT_DEFAULTS);
+try { opts = Object.assign({}, OPT_DEFAULTS, JSON.parse(localStorage.getItem('userOpts') || '{}')); } catch (e) {}
+function saveOpts(){ localStorage.setItem('userOpts', JSON.stringify(opts)); }
+function bindOpt(id, key, isSelect){
+  const el = $(id);
+  if (isSelect) el.value = opts[key]; else el.checked = !!opts[key];
+  el.addEventListener('change', () => { opts[key] = isSelect ? el.value : el.checked; saveOpts(); });
+}
+bindOpt('optNewScan', 'newScan');
+bindOpt('optVibrate', 'vibrate');
+bindOpt('optAiAuto', 'aiAuto');
+bindOpt('optAutoApply', 'autoApply');
+bindOpt('optRuban', 'ruban', true);
+$('btnCfgBack').onclick = () => show((typeof drive !== 'undefined' && drive) || DEMO ? 'viewMain' : 'viewLogin');
 
 $('btnCfg').onclick = () => {
   if (cfg){ $('cfgTenant').value = cfg.tenantId; $('cfgClient').value = cfg.clientId; $('cfgShare').value = cfg.shareLink; $('cfgAiKey').value = cfg.anthropicKey || ''; }
