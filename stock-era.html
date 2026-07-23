@@ -185,6 +185,14 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 #aiSugg small{color:var(--muted,#9aa4b2)}
 .aiSuggBtns{display:flex;gap:8px;margin-top:8px}
 .aiSuggBtns .btn{flex:0 0 auto;padding:6px 14px;font-size:13px}
+#aiBusy{display:flex;align-items:center;gap:9px;margin:8px 0 4px;padding:9px 12px;border-radius:8px;
+  font-size:13.5px;background:rgba(41,141,191,.12);border:1px solid var(--blue);color:var(--blue-l);
+  animation:camMsgIn .18s ease-out}
+#aiBusy .spin{width:14px;height:14px;border:2px solid var(--blue-l);border-top-color:transparent;
+  border-radius:50%;flex:0 0 auto;animation:aiSpin .8s linear infinite}
+@keyframes aiSpin{to{transform:rotate(360deg)}}
+.cnt{float:right;font-size:10.5px;font-weight:400;color:var(--txt-dim)}
+.cnt.low{color:var(--accent)}
 
 /* ============ Toast ============ */
 #toast{
@@ -208,13 +216,13 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 .fieldcam{background:var(--surface2);border:1px solid var(--line);color:var(--accent);padding:0 10px;font-size:16px}
 #lblWrap{background:#fff;border-radius:4px;padding:8px;overflow-x:auto;margin-top:4px}
 #lbl{color:#000;font-family:Arial,Helvetica,sans-serif;border:1px dashed #aaa;padding:5px 10px;display:inline-flex;flex-direction:column;justify-content:space-between;min-width:330px}
-#lbl .l1{font-weight:bold;font-size:15px;white-space:nowrap}
+#lbl .l1{font-weight:bold;font-size:15px;white-space:nowrap;line-height:1.05}
 #lbl .l1 span{font-weight:normal;font-family:Consolas,monospace;font-size:12px;margin-left:8px}
-#lbl .l2{font-size:11px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px}
-#lbl .bars{display:flex;gap:18px;align-items:flex-end}
+#lbl .l2{color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px;line-height:1.15}
+#lbl .bars{display:flex;gap:18px;align-items:flex-end;margin-top:2px}
 #lbl .bc{display:flex;flex-direction:row;align-items:flex-end;gap:3px}
 #lbl .bcap{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:bold;letter-spacing:.6px;color:#000;line-height:1}
-#lbl .l3{font-size:11px;font-style:italic;font-family:Consolas,monospace;color:#111}
+#lbl .l3{font-weight:bold;font-style:italic;font-family:Consolas,monospace;color:#000;line-height:1.15}
 #lbl .bars svg{display:block}
 #lbl .empl{font-size:10px;color:#444;align-self:flex-end}
 
@@ -246,7 +254,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.1</span></small></h1>
+  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.2</span></small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -323,6 +331,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   <div class="modal">
     <h2 id="formTitle">Nouvel article</h2>
     <p class="hint" id="formSub"></p>
+    <div id="aiBusy" class="hidden"><span class="spin"></span>Recherche IA du produit en cours…</div>
     <div id="aiSugg" class="hidden">
       <div id="aiSuggTxt"></div>
       <div class="aiSuggBtns">
@@ -331,11 +340,11 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
       </div>
     </div>
 
-    <label>Nom produit *</label>
+    <label>Nom produit * <span class="cnt" id="cntNom"></span></label>
     <input id="fNom" maxlength="30" placeholder="ex. iC60H C4 (30 car. max)">
-    <label>Référence fabricant</label>
+    <label>Référence fabricant <span class="cnt" id="cntRef"></span></label>
     <input id="fRef" class="mono" maxlength="15" placeholder="ex. A9F84204">
-    <label>Description</label>
+    <label>Description <span class="cnt" id="cntDesc"></span></label>
     <textarea id="fDesc" rows="2" maxlength="60" placeholder="ex. Disjoncteur 2P 4A courbe C (60 car. max)"></textarea>
 
     <div class="row">
@@ -428,7 +437,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.6.1
+   Stock E.R.A. — v1.6.2
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -706,6 +715,8 @@ function openForm(id = null, prefill = {}){
   checkGtinFields();
   renderLabel();
   aiSuggHide();
+  aiLastCode = '';                             // chaque ouverture de fiche repart de zéro côté IA
+  $('aiBusy').classList.add('hidden');
   $('formModal').classList.remove('hidden');
   $('fNom').focus();
 }
@@ -814,8 +825,10 @@ async function aiLookup(query){
   const prompt = 'Identifie ce produit (matériel électrique/industriel probable) : ' + query +
     '. Utilise la recherche web si nécessaire. Réponds UNIQUEMENT avec un objet JSON strict, sans texte autour ni markdown : ' +
     '{"found":true,"marque":"…","nom":"…","reference":"…","description":"…","qte_boite":"…"} ' +
-    'où nom = désignation courte (ex. "iC60H C4"), reference = référence fabricant (ex. "A9F84204"), ' +
-    'description = caractéristiques techniques en une ligne, en français, qte_boite = quantité par conditionnement si connue, sinon "". ' +
+    'où nom = désignation/référence courte du produit SANS la marque, 30 caractères MAXIMUM (ex. "iC60H C4", "QMX3.P30-1BSC", "CWG.BOX-EU"), ' +
+    'reference = référence de commande fabricant, 15 caractères MAXIMUM (ex. "A9F84204"), ' +
+    'description = caractéristiques techniques en une ligne, en français, 60 caractères MAXIMUM, ' +
+    'qte_boite = quantité par conditionnement si connue, sinon "". Respecte STRICTEMENT ces longueurs maximales. ' +
     'Si le produit n\u2019est pas identifiable avec certitude, réponds {"found":false}.';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 25000);
@@ -856,13 +869,23 @@ async function aiLookup(query){
   finally { clearTimeout(timer); }
 }
 let aiSuggData = null;
+let aiLastCode = '';                           // dernier code déjà interrogé (évite les doublons, permet le re-scan)
+function maybeAiForCode(d){
+  // Nouvelle fiche : tout code valide scanné/saisi (même si le nom est déjà rempli) relance la suggestion,
+  // sauf si c'est exactement le code déjà interrogé.
+  if (editingId || !isValidGtin(d) || (d.length !== 13 && d.length !== 14) || d === aiLastCode) return;
+  aiLastCode = d;
+  aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
+}
 async function aiSuggest(query){
   // Proxy E.R.A. disponible par défaut : la suggestion fonctionne sans clé locale.
   const gen = ++aiGen;
   aiSuggHide();
+  $('aiBusy').classList.remove('hidden');
   $('formSub').textContent = 'Recherche IA du produit en cours…';
   const res = await aiLookup(query);
   if (gen !== aiGen || $('formModal').classList.contains('hidden')) return;  // fiche fermée ou nouveau scan entre-temps
+  $('aiBusy').classList.add('hidden');
   if (!res.j){
     $('formSub').textContent = res.err
       ? 'Recherche IA indisponible (' + res.err + ') — complétez manuellement.'
@@ -881,7 +904,7 @@ async function aiSuggest(query){
 function aiSuggHide(){ $('aiSugg').classList.add('hidden'); aiSuggData = null; }
 $('btnAiApply').onclick = () => {
   const r = aiSuggData; if (!r) return;
-  if (r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim().slice(0, 30);
+  if (r.nom) $('fNom').value = String(r.nom).trim().slice(0, 30);   // sans la marque (elle reste affichée dans la suggestion)
   if (r.reference) $('fRef').value = String(r.reference).slice(0, 15);
   if (r.description) $('fDesc').value = String(r.description).slice(0, 60);
   if (r.qte_boite && !$('fQty').value) $('fQty').value = String(r.qte_boite);
@@ -889,11 +912,9 @@ $('btnAiApply').onclick = () => {
   aiSuggHide(); renderLabel();
 };
 $('btnAiDismiss').onclick = () => { aiSuggHide(); $('formSub').textContent = 'Suggestion ignorée — complétez manuellement.'; };
-// Douchette USB / saisie directe dans les champs code d\u2019une nouvelle fiche -> suggestion IA
+// Douchette USB / saisie directe dans les champs code d\u2019une nouvelle fiche -> suggestion IA (re-scan compris)
 ['fG13', 'fG14'].forEach(idf => $(idf).addEventListener('change', () => {
-  const d = $(idf).value.replace(/\D/g, '');
-  if (!editingId && isValidGtin(d) && (d.length === 13 || d.length === 14) && !$('fNom').value.trim())
-    aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
+  maybeAiForCode($(idf).value.replace(/\D/g, ''));
 }));
 
 // ---------- Scan ----------
@@ -913,11 +934,11 @@ function handleScan(codeRaw){
   if (digits.length === 13 && isValidGtin(digits)){
     openForm(null, { gtin13: digits, gtin14: derive14(digits) });
     toast('Nouveau produit — code boîte proposé automatiquement, vérifiez-le.');
-    aiSuggest('GTIN/EAN-13 ' + digits);
+    maybeAiForCode(digits);
   } else if (digits.length === 14 && isValidGtin(digits)){
     openForm(null, { gtin14: digits, gtin13: derive13(digits) });
     toast('Code boîte scanné — code unité proposé, vérifiez-le.');
-    aiSuggest('GTIN-14 conditionnement ' + digits);
+    maybeAiForCode(digits);
   } else {
     // référence fabricant ou code non GS1
     openForm(null, { ref: code });
@@ -1104,9 +1125,7 @@ function camDone(txt){
     const d = String(txt).replace(/\D/g, '');
     $(camTarget).value = d; checkGtinFields(); renderLabel();
     toast(isValidGtin(d) ? 'Code scanné.' : 'Code scanné mais invalide — vérifiez.', !isValidGtin(d));
-    // Nouvelle fiche dont le nom est vide -> proposer la suggestion IA
-    if (!editingId && isValidGtin(d) && (d.length === 13 || d.length === 14) && !$('fNom').value.trim())
-      aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
+    maybeAiForCode(d);                         // nouvelle fiche : suggestion IA, re-scan compris
     camTarget = null;
   } else handleScan(txt);
 }
@@ -1134,14 +1153,23 @@ function renderLabel(){
   const g13ok = g13.length === 13 && isValidGtin(g13);
   const g14ok = g14.length > 0 && isValidGtin(g14);
   el.innerHTML =
-    '<div class="l1" style="font-size:' + (ruban === '36' ? 25 : 19) + 'px">' + esc(nom) + '</div>' +
-    (desc ? '<div class="l2">' + esc(desc) + '</div>' : '') +
-    (ref ? '<div class="l3">' + esc(ref) + '</div>' : '') +
+    '<div class="l1" style="font-size:' + (ruban === '36' ? 30 : 20) + 'px">' + esc(nom) + '</div>' +
+    (desc ? '<div class="l2" style="font-size:' + (ruban === '36' ? 19 : 13.5) + 'px">' + esc(desc) + '</div>' : '') +
+    (ref ? '<div class="l3" style="font-size:' + (ruban === '36' ? 14 : 10.5) + 'px">' + esc(ref) + '</div>' : '') +
     '<div class="bars">' +
-      (g13ok ? '<div class="bc"><div class="bcap">UNITÉ</div><svg id="lblB1"></svg></div>' : '') +
+      (g13ok ? '<div class="bc"><div class="bcap">UNITE</div><svg id="lblB1"></svg></div>' : '') +
       (g14ok ? '<div class="bc"><div class="bcap">BOITE x' + (qty ? esc(qty) : '') + '</div><svg id="lblB2"></svg></div>' : '') + '</div>';
   try { if (g13ok && window.JsBarcode) JsBarcode('#lblB1', g13, { format: 'EAN13', height: barH, width: 1.1, fontSize: 9, margin: 0 }); } catch (e) {}
   try { if (g14ok && window.JsBarcode) JsBarcode('#lblB2', g14, { format: 'CODE128', height: barH, width: 1.1, fontSize: 9, margin: 0 }); } catch (e) {}
+  updateCnts();
+}
+// Caractères restants sous les limites d'étiquette (affiché en petit dans le label du champ)
+function updateCnts(){
+  [['fNom', 'cntNom', 30], ['fRef', 'cntRef', 15], ['fDesc', 'cntDesc', 60]].forEach(([f, c, max]) => {
+    const left = max - $(f).value.length;
+    $(c).textContent = left + ' car. restants';
+    $(c).classList.toggle('low', left <= 5);
+  });
 }
 ['fNom','fRef','fDesc','fG13','fG14','fQty'].forEach(id => $(id).addEventListener('input', renderLabel));
 $('fRuban').addEventListener('change', renderLabel);
@@ -1224,9 +1252,9 @@ $('btnBugClose').onclick = () => $('bugModal').classList.add('hidden');
 $('btnBugSend').onclick = () => {
   const desc = $('bugDesc').value.trim();
   if (!desc) return toast('Décrivez le bug ou la suggestion.', true);
-  const sujet = '[Stock ERA v1.6.1] ' + $('bugType').value;
+  const sujet = '[Stock ERA v1.6.2] ' + $('bugType').value;
   const corps = $('bugType').value + ' :\n' + desc +
-    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.1' +
+    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.2' +
     '\nDate : ' + new Date().toLocaleString('fr-BE') +
     '\nAppareil : ' + navigator.userAgent +
     '\nMode : ' + (DEMO ? 'démo' : 'normal');
