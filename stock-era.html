@@ -166,6 +166,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 }
 #scanLine.vert{left:50%;right:auto;top:8%;bottom:8%;width:2px;height:auto;margin:0 0 0 -1px}
 #camTools{display:flex;gap:8px;margin-top:10px}
+#btnCamPhoto{background:var(--surface2);border:1px solid var(--line);color:var(--txt);padding:8px 12px;font-size:13.5px;white-space:nowrap}
 #btnCamLens{flex:1;text-align:left;background:var(--surface2);border:1px solid var(--line);color:var(--txt);padding:8px 12px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #btnCamRot{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);color:var(--txt);padding:8px 12px;font-size:13.5px}
 #btnCamRot.on{border-color:var(--accent);color:var(--accent)}
@@ -196,6 +197,10 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 #aiFail span{flex:1}
 #aiFail .btn{flex:0 0 auto;padding:6px 12px;font-size:12.5px}
 #btnAiPhoto{margin:6px 0 2px;padding:8px 12px;font-size:13px}
+#menuPanel{position:fixed;top:56px;right:10px;z-index:30;display:flex;flex-direction:column;gap:8px;
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);animation:camMsgIn .15s ease-out}
+#menuPanel .btn{width:100%;text-align:left}
 .cnt{float:right;font-size:10.5px;font-weight:400;color:var(--txt-dim)}
 .cnt.low{color:var(--accent)}
 
@@ -259,11 +264,12 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.4</span></small></h1>
+  <h1>Stock E.R.A.<small><span class="subt">Encodage étiquettes · </span><span id="appVer">v1.6.5</span></small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
-  <button id="btnBug" class="btn ghost" style="padding:6px 10px;font-size:12px;white-space:nowrap" title="Signaler un bug ou proposer une amélioration">📣 Signaler</button>
+  <button id="btnMenu" class="btn ghost" style="padding:6px 10px;font-size:12px;white-space:nowrap;flex:0 0 auto" title="Export et publication">⬇ Export</button>
+  <button id="btnBug" class="btn ghost" style="padding:6px 10px;font-size:12px;white-space:nowrap;flex:0 0 auto" title="Signaler un bug ou proposer une amélioration">📣 Signaler</button>
   <button id="btnCfg" class="btn ghost" style="padding:6px 10px;font-size:12px">⚙</button>
 </header>
 
@@ -310,10 +316,13 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
       <div id="sugg" class="hidden"></div>
     </div>
 
+    <div id="menuPanel" class="hidden">
+      <button class="btn ghost" id="btnExport">⬇ Export P-touch (xlsx)</button>
+      <button class="btn ghost" id="btnPublish">☁ Publier OneDrive</button>
+    </div>
+
     <div id="toolbar">
       <button class="btn" id="btnNew">＋ Nouvel article</button>
-      <button class="btn ghost" id="btnExport">⬇ Export P-touch</button>
-      <button class="btn ghost" id="btnPublish">☁ Publier OneDrive</button>
     </div>
 
     <div id="filters">
@@ -340,7 +349,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <p class="hint" id="formSub"></p>
     <div id="aiBusy" class="hidden"><span class="spin"></span>Recherche IA du produit en cours…</div>
     <div id="aiFail" class="hidden"><span id="aiFailTxt"></span><button type="button" class="btn ghost" id="btnAiRetry">Réessayer</button></div>
-    <button type="button" class="btn ghost" id="btnAiPhoto" title="Pour les produits sans code EAN sur la boîte : photographiez la ou les étiquettes, l'IA identifie le produit et cherche son code EAN en ligne">📸 Identifier par photo de l'étiquette</button>
+    <button type="button" class="btn ghost" id="btnAiPhoto" title="Pour les produits sans code EAN : photographiez l'étiquette ou l'équipement lui-même, l'IA identifie le produit et cherche son code EAN en ligne">📸 Identifier par photo (étiquette ou produit)</button>
     <input type="file" id="aiPhotoInput" accept="image/*" capture="environment" multiple class="hidden">
     <div id="aiSugg" class="hidden">
       <div id="aiSuggTxt"></div>
@@ -353,7 +362,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <label>Nom produit * <span class="cnt" id="cntNom"></span></label>
     <input id="fNom" maxlength="30" placeholder="ex. iC60H C4 (30 car. max)">
     <label>Référence fabricant <span class="cnt" id="cntRef"></span></label>
-    <input id="fRef" class="mono" maxlength="25" placeholder="ex. A9F84204 / S55624-H121">
+    <input id="fRef" class="mono" maxlength="40" placeholder="ex. A9F84204 / S55624-H121">
     <label>Description <span class="cnt" id="cntDesc"></span></label>
     <textarea id="fDesc" rows="2" maxlength="60" placeholder="ex. Disjoncteur 2P 4A courbe C (60 car. max)"></textarea>
 
@@ -434,6 +443,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
     <div id="camTools">
       <button type="button" id="btnCamLens" title="Changer d'objectif (caméras arrière uniquement)">🔄 Objectif : automatique</button>
       <button type="button" id="btnCamRot" title="Basculer le scan à 90° (codes-barres verticaux)">⟳ 90°</button>
+      <button type="button" id="btnCamPhoto" title="Pas de code-barres valide sur le produit ? Photographiez l'étiquette ou l'équipement, l'IA l'identifie">📸 Photo IA</button>
     </div>
     <div id="camMsg" class="hidden"></div>
     <div id="camHint"><b>Alignez la ligne rouge sur le code-barres à lire</b> — seul le code sur la ligne est pris en compte.
@@ -447,7 +457,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.6.4
+   Stock E.R.A. — v1.6.5
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -675,6 +685,10 @@ function syncSelUi(){
   $('btnMarkPrinted').textContent = '✔ Marquer comme imprimées' + (selected.size ? ' (' + selected.size + ')' : '');
   $('btnMarkTodo').textContent = '↺ Repasser en À imprimer' + (selected.size ? ' (' + selected.size + ')' : '');
   $('btnBulkDelete').textContent = '🗑 Supprimer' + (selected.size ? ' (' + selected.size + ')' : '');
+  const on = selectMode && selected.size;      // recalculé À CHAQUE coche, pas seulement au render()
+  $('btnMarkPrinted').disabled = !on;
+  $('btnMarkTodo').disabled = !on;
+  $('btnBulkDelete').disabled = !on;
 }
 $('btnBulkDelete').onclick = async () => {
   const n = selected.size;
@@ -689,9 +703,19 @@ $('btnSort').onclick = () => {
   sortMode = sortMode === 'az' ? 'recent' : 'az';
   localStorage.setItem('sortMode', sortMode);
   $('btnSort').textContent = sortMode === 'az' ? 'Tri : A→Z' : 'Tri : Récents';
+$('btnMenu').onclick = (e) => { e.stopPropagation(); $('menuPanel').classList.toggle('hidden'); };
+document.addEventListener('click', (e) => {
+  if (!$('menuPanel').classList.contains('hidden') && !$('menuPanel').contains(e.target)) $('menuPanel').classList.add('hidden');
+});
+['btnExport', 'btnPublish'].forEach(idb => $(idb).addEventListener('click', () => $('menuPanel').classList.add('hidden')));
   render();
 };
 $('btnSort').textContent = sortMode === 'az' ? 'Tri : A→Z' : 'Tri : Récents';
+$('btnMenu').onclick = (e) => { e.stopPropagation(); $('menuPanel').classList.toggle('hidden'); };
+document.addEventListener('click', (e) => {
+  if (!$('menuPanel').classList.contains('hidden') && !$('menuPanel').contains(e.target)) $('menuPanel').classList.add('hidden');
+});
+['btnExport', 'btnPublish'].forEach(idb => $(idb).addEventListener('click', () => $('menuPanel').classList.add('hidden')));
 document.querySelectorAll('#filters .chip').forEach(c => { if (!c.dataset.f) return; c.onclick = () => {
   filterMode = c.dataset.f;
   selected.clear();
@@ -751,7 +775,7 @@ function openForm(id = null, prefill = {}){
   $('aiBusy').classList.add('hidden');
   $('aiFail').classList.add('hidden');
   $('formModal').classList.remove('hidden');
-  $('fNom').focus();
+  // pas de focus automatique : le clavier mobile n'apparaît que si l'utilisateur touche un champ
 }
 function closeForm(){ $('formModal').classList.add('hidden'); editingId = null; }
 function updatePrintStatusUi(r){
@@ -870,9 +894,11 @@ async function aiLookup(query, images){
     'distributeur SUFFIT pour found:true. Réponds UNIQUEMENT avec un objet JSON strict, sans texte autour ni markdown : ' +
     '{"found":true,"marque":"…","nom":"…","reference":"…","description":"…","qte_boite":"…","gtin13":"…","gtin14":"…"} ' +
     'où nom = la désignation de type du fabricant si elle existe (ex. "TXM1.6R", "QMX3.P30-1BSC", "iC60H C4"), sinon une désignation courte, toujours SANS la marque, 30 caractères MAXIMUM, ' +
-    'reference = référence de commande fabricant, 25 caractères MAXIMUM (ex. "A9F84204", "S55624-H121"), ' +
-    'description = caractéristiques techniques en une ligne, en français, 60 caractères MAXIMUM, style télégraphique ' +
-    'SANS phrase, structure : type d\u2019appareil puis valeurs/calibre puis caractéristiques clés (ex. "Disjoncteur 2P 4A courbe C") ' +
+    'reference = référence de commande fabricant complète, 40 caractères MAXIMUM (ex. "A9F84204", "S55624-H121", "BPZ:VXG44.40-25"), ' +
+    'description = texte technique pour techniciens, une ligne, en français, 60 caractères MAXIMUM, style télégraphique ' +
+    'SANS phrase : type d\u2019appareil puis LES CARACTÉRISTIQUES QUI DISTINGUENT ce modèle de ses déclinaisons proches ' +
+    '(ex. PXC3 : nombre de points KNX PL-Link et/ou DALI ; registres GCA/GMA : couple, ressort de rappel, contact aux. ; ' +
+    'disjoncteur : pôles, calibre, courbe) — jamais de généralités interchangeables entre modèles ' +
     (exs ? '— pour homogénéiser le stock, calque la STRUCTURE de description sur ces fiches existantes (nom => description) : ' + exs +
     ' ; si le produit appartient à la même gamme qu\u2019une fiche existante (préfixe de nom commun), reprends exactement la même structure en adaptant seulement les valeurs. ' : '. ') +
     'qte_boite = nombre d\u2019unités par boîte/conditionnement (cherche-la activement si le produit se vend en boîte), sinon "". ' +
@@ -888,7 +914,7 @@ async function aiLookup(query, images){
   const body = JSON.stringify({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 600,
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: images && images.length ? 3 : 2 }],
     messages: [{ role: 'user', content }],
   });
   const call = async (url, headers) => {
@@ -967,12 +993,14 @@ function aiSuggHide(){ $('aiSugg').classList.add('hidden'); aiSuggData = null; }
 $('btnAiApply').onclick = () => {
   const r = aiSuggData; if (!r) return;
   if (r.nom) $('fNom').value = String(r.nom).trim().slice(0, 30);   // sans la marque (elle reste affichée dans la suggestion)
-  if (r.reference) $('fRef').value = String(r.reference).slice(0, 25);
+  if (r.reference) $('fRef').value = String(r.reference).slice(0, 40);
   if (r.description) $('fDesc').value = String(r.description).slice(0, 60);
-  if (r.qte_boite && !$('fQty').value) $('fQty').value = String(r.qte_boite);
+  if (r.qte_boite) $('fQty').value = String(r.qte_boite);
   const d13 = String(r.gtin13 || '').replace(/\D/g, ''), d14 = String(r.gtin14 || '').replace(/\D/g, '');
-  if (d13.length === 13 && isValidGtin(d13) && !$('fG13').value.trim()) $('fG13').value = d13;
-  if (d14.length === 14 && isValidGtin(d14) && !$('fG14').value.trim()) $('fG14').value = d14;
+  // « Appliquer » = accord explicite : un code trouvé par l'IA remplace la valeur en place
+  // (indispensable quand on ré-identifie un AUTRE produit par photo après un premier scan)
+  if (d13.length === 13 && isValidGtin(d13)) $('fG13').value = d13;
+  if (d14.length === 14 && isValidGtin(d14)) $('fG14').value = d14;
   checkGtinFields();
   $('formSub').textContent = 'Champs complétés par IA — vérifiez avant d\u2019enregistrer.';
   aiSuggHide(); renderLabel();
@@ -998,6 +1026,13 @@ function downscaleImage(file){
   });
 }
 $('btnAiPhoto').onclick = () => $('aiPhotoInput').click();
+$('btnCamPhoto').onclick = () => {
+  // Depuis le scanner : pas de code exploitable -> on bascule direct sur l'identification par photo
+  const forField = camTarget;                  // scan lancé depuis un champ de la fiche ?
+  closeCam();
+  if (!forField && $('formModal').classList.contains('hidden')) openForm(null, {});
+  $('aiPhotoInput').click();                   // le clic utilisateur autorise l'ouverture du sélecteur (iOS)
+};
 $('aiPhotoInput').addEventListener('change', async () => {
   const files = Array.from($('aiPhotoInput').files || []).slice(0, 3);   // 3 photos max
   $('aiPhotoInput').value = '';
@@ -1006,7 +1041,8 @@ $('aiPhotoInput').addEventListener('change', async () => {
   const imgs = [];
   for (const f of files){ try { imgs.push(await downscaleImage(f)); } catch (e) {} }
   if (!imgs.length){ toast('Photo illisible — réessayez.', true); return; }
-  aiSuggest('la ou les étiquettes du produit sont fournies en photo : lis-y fabricant, référence et caractéristiques, puis cherche le produit en ligne', imgs);
+  aiSuggest('la ou les photos montrent l\u2019étiquette du produit OU l\u2019équipement lui-même : lis l\u2019étiquette si elle existe ; ' +
+    'sinon identifie l\u2019appareil visuellement (forme, marquages, sérigraphie, connecteurs) — dans les deux cas cherche ensuite le produit en ligne', imgs);
 });
 // Douchette USB / saisie directe dans les champs code d\u2019une nouvelle fiche -> suggestion IA (re-scan compris)
 ['fG13', 'fG14'].forEach(idf => $(idf).addEventListener('change', () => {
@@ -1262,7 +1298,7 @@ function renderLabel(){
 }
 // Caractères restants sous les limites d'étiquette (affiché en petit dans le label du champ)
 function updateCnts(){
-  [['fNom', 'cntNom', 30], ['fRef', 'cntRef', 25], ['fDesc', 'cntDesc', 60]].forEach(([f, c, max]) => {
+  [['fNom', 'cntNom', 30], ['fRef', 'cntRef', 40], ['fDesc', 'cntDesc', 60]].forEach(([f, c, max]) => {
     const left = max - $(f).value.length;
     $(c).textContent = left + ' car. restants';
     $(c).classList.toggle('low', left <= 5);
@@ -1349,9 +1385,9 @@ $('btnBugClose').onclick = () => $('bugModal').classList.add('hidden');
 $('btnBugSend').onclick = () => {
   const desc = $('bugDesc').value.trim();
   if (!desc) return toast('Décrivez le bug ou la suggestion.', true);
-  const sujet = '[Stock ERA v1.6.4] ' + $('bugType').value;
+  const sujet = '[Stock ERA v1.6.5] ' + $('bugType').value;
   const corps = $('bugType').value + ' :\n' + desc +
-    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.4' +
+    '\n\n--- Contexte automatique ---\nVersion : Stock E.R.A. v1.6.5' +
     '\nDate : ' + new Date().toLocaleString('fr-BE') +
     '\nAppareil : ' + navigator.userAgent +
     '\nMode : ' + (DEMO ? 'démo' : 'normal');
