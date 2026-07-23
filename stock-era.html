@@ -165,6 +165,14 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   animation:camMsgIn .18s ease-out;
 }
 @keyframes camMsgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+#aiSugg{
+  margin:10px 0 4px;padding:10px 12px;border-radius:8px;font-size:13.5px;line-height:1.45;
+  background:rgba(41,141,191,.12);border:1px solid #298DBF;
+  animation:camMsgIn .18s ease-out;
+}
+#aiSugg small{color:var(--muted,#9aa4b2)}
+.aiSuggBtns{display:flex;gap:8px;margin-top:8px}
+.aiSuggBtns .btn{flex:0 0 auto;padding:6px 14px;font-size:13px}
 
 /* ============ Toast ============ */
 #toast{
@@ -223,7 +231,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <header>
   <div class="logo-bars"><span></span><span></span><span></span><span></span><span></span></div>
-  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.5.8</small></h1>
+  <h1>Stock E.R.A.<small>Encodage étiquettes · v1.5.9</small></h1>
   <div class="spacer"></div>
   <div id="syncChip"><span id="syncDot"></span><span id="syncText">hors ligne</span></div>
   <button id="btnUser" class="hidden" title="Se déconnecter">—</button>
@@ -299,6 +307,13 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
   <div class="modal">
     <h2 id="formTitle">Nouvel article</h2>
     <p class="hint" id="formSub"></p>
+    <div id="aiSugg" class="hidden">
+      <div id="aiSuggTxt"></div>
+      <div class="aiSuggBtns">
+        <button type="button" class="btn" id="btnAiApply">Appliquer</button>
+        <button type="button" class="btn ghost" id="btnAiDismiss">Ignorer</button>
+      </div>
+    </div>
 
     <label>Nom produit *</label>
     <input id="fNom" maxlength="30" placeholder="ex. iC60H C4 (30 car. max)">
@@ -377,7 +392,7 @@ label{display:block;font-size:13px;color:var(--txt-dim);margin:10px 0 4px;font-w
 
 <script>
 /* =====================================================================
-   Stock E.R.A. — v1.5.8
+   Stock E.R.A. — v1.5.9
    Base de données : stock-db.json dans un dossier OneDrive/SharePoint
    partagé, lu/écrit via Microsoft Graph (compte M365 de l'utilisateur).
    ===================================================================== */
@@ -654,6 +669,7 @@ function openForm(id = null, prefill = {}){
   updatePrintStatusUi(id ? r : null);
   checkGtinFields();
   renderLabel();
+  aiSuggHide();
   $('formModal').classList.remove('hidden');
   $('fNom').focus();
 }
@@ -791,20 +807,40 @@ async function aiLookup(query){
   } catch (e) { return null; }                 // indisponible / timeout / clé invalide -> mode manuel
   finally { clearTimeout(timer); }
 }
-async function aiPrefill(query){
-  // Proxy E.R.A. disponible par défaut : la précomplétion fonctionne sans clé locale.
+let aiSuggData = null;
+async function aiSuggest(query){
+  // Proxy E.R.A. disponible par défaut : la suggestion fonctionne sans clé locale.
   const gen = ++aiGen;
+  aiSuggHide();
   $('formSub').textContent = 'Recherche IA du produit en cours…';
   const r = await aiLookup(query);
   if (gen !== aiGen || $('formModal').classList.contains('hidden')) return;  // fiche fermée ou nouveau scan entre-temps
   if (!r){ $('formSub').textContent = 'Recherche IA sans résultat — complétez manuellement.'; return; }
-  if (!$('fNom').value && r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim().slice(0, 30);
-  if (!$('fRef').value && r.reference) $('fRef').value = String(r.reference).slice(0, 15);
-  if (!$('fDesc').value && r.description) $('fDesc').value = String(r.description).slice(0, 60);
-  if (!$('fQty').value && r.qte_boite) $('fQty').value = String(r.qte_boite);
-  $('formSub').textContent = 'Pré-complété par IA — vérifiez avant d\u2019enregistrer.';
-  renderLabel();
+  aiSuggData = r;
+  $('formSub').textContent = 'Suggestion IA disponible — appliquez-la ou ignorez-la.';
+  $('aiSuggTxt').innerHTML = '<b>Suggestion IA :</b> ' + esc(((r.marque || '') + ' ' + (r.nom || '')).trim()) +
+    (r.reference ? ' · ' + esc(String(r.reference)) : '') +
+    (r.description ? '<br><small>' + esc(String(r.description)) + '</small>' : '') +
+    (r.qte_boite ? '<br><small>Conditionnement : ' + esc(String(r.qte_boite)) + ' pièces</small>' : '');
+  $('aiSugg').classList.remove('hidden');
 }
+function aiSuggHide(){ $('aiSugg').classList.add('hidden'); aiSuggData = null; }
+$('btnAiApply').onclick = () => {
+  const r = aiSuggData; if (!r) return;
+  if (r.nom) $('fNom').value = ((r.marque || '') + ' ' + r.nom).trim().slice(0, 30);
+  if (r.reference) $('fRef').value = String(r.reference).slice(0, 15);
+  if (r.description) $('fDesc').value = String(r.description).slice(0, 60);
+  if (r.qte_boite && !$('fQty').value) $('fQty').value = String(r.qte_boite);
+  $('formSub').textContent = 'Champs complétés par IA — vérifiez avant d\u2019enregistrer.';
+  aiSuggHide(); renderLabel();
+};
+$('btnAiDismiss').onclick = () => { aiSuggHide(); $('formSub').textContent = 'Suggestion ignorée — complétez manuellement.'; };
+// Douchette USB / saisie directe dans les champs code d\u2019une nouvelle fiche -> suggestion IA
+['fG13', 'fG14'].forEach(idf => $(idf).addEventListener('change', () => {
+  const d = $(idf).value.replace(/\D/g, '');
+  if (!editingId && isValidGtin(d) && (d.length === 13 || d.length === 14) && !$('fNom').value.trim())
+    aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
+}));
 
 // ---------- Scan ----------
 function handleScan(codeRaw){
@@ -823,15 +859,15 @@ function handleScan(codeRaw){
   if (digits.length === 13 && isValidGtin(digits)){
     openForm(null, { gtin13: digits, gtin14: derive14(digits) });
     toast('Nouveau produit — code boîte proposé automatiquement, vérifiez-le.');
-    aiPrefill('GTIN/EAN-13 ' + digits);
+    aiSuggest('GTIN/EAN-13 ' + digits);
   } else if (digits.length === 14 && isValidGtin(digits)){
     openForm(null, { gtin14: digits, gtin13: derive13(digits) });
     toast('Code boîte scanné — code unité proposé, vérifiez-le.');
-    aiPrefill('GTIN-14 conditionnement ' + digits);
+    aiSuggest('GTIN-14 conditionnement ' + digits);
   } else {
     // référence fabricant ou code non GS1
     openForm(null, { ref: code });
-    aiPrefill('r\u00e9f\u00e9rence fabricant "' + code + '"');
+    aiSuggest('r\u00e9f\u00e9rence fabricant "' + code + '"');
   }
 }
 $('btnScanGo').onclick = () => handleScan($('scanInput').value);
@@ -865,13 +901,14 @@ async function openCam(target){
       Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
       Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.CODE_128,
       Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.DATA_MATRIX,
     ],
   });
   try {
     await camScanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 260, height: 140 } },
-      txt => camDetect(txt),
+      (txt, res) => camDetect(txt, res && res.result && res.result.format ? res.result.format.formatName : ''),
       () => {}
     );
   } catch (e) { closeCam(); toast('Caméra inaccessible : ' + e, true); }
@@ -879,8 +916,13 @@ async function openCam(target){
 
 // Diagnostic en direct : la caméra reste ouverte tant que le code lu n'est pas un EAN valide.
 let camLastCode = '', camLastAt = 0;
-function camDiagnose(raw){
+function camDiagnose(raw, fmtName){
   const s = String(raw).trim();
+  // QR / Data Matrix : accepté uniquement si le contenu est exactement un GTIN valide
+  if (/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(s) && isValidGtin(s)) return null;
+  if (fmtName === 'QR_CODE' || fmtName === 'DATA_MATRIX')
+    return 'Ceci est un ' + (fmtName === 'QR_CODE' ? 'QR code' : 'Data Matrix') +
+      ' (donn\u00e9es fabricant), pas le code EAN \u2014 cherchez le code-barres classique : 13 chiffres sous des barres.';
   const sansSep = s.replace(/[:\-\s.]/g, '');
   if (/^[0-9A-Fa-f]{12}$/.test(sansSep) && /[A-Fa-f]/.test(sansSep))
     return 'Ceci ressemble à l\u2019adresse MAC de l\u2019équipement, pas à son code EAN.';
@@ -895,8 +937,8 @@ function camDiagnose(raw){
     return 'Code chiffré mais somme de contrôle invalide — le scan était peut-être imparfait, réessayez.';
   return null;                                 // code valide
 }
-function camDetect(txt){
-  const diag = camDiagnose(txt);
+function camDetect(txt, fmtName){
+  const diag = camDiagnose(txt, fmtName);
   if (!diag){
     camLastCode = ''; camMsgHide();
     closeCam(); camDone(txt);
@@ -923,6 +965,9 @@ function camDone(txt){
     const d = String(txt).replace(/\D/g, '');
     $(camTarget).value = d; checkGtinFields(); renderLabel();
     toast(isValidGtin(d) ? 'Code scanné.' : 'Code scanné mais invalide — vérifiez.', !isValidGtin(d));
+    // Nouvelle fiche dont le nom est vide -> proposer la suggestion IA
+    if (!editingId && isValidGtin(d) && (d.length === 13 || d.length === 14) && !$('fNom').value.trim())
+      aiSuggest((d.length === 14 ? 'GTIN-14 conditionnement ' : 'GTIN/EAN-13 ') + d);
     camTarget = null;
   } else handleScan(txt);
 }
